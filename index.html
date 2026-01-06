@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Tune Player</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Simple Tune Player</h1>
+        </header>
+
+        <main>
+            <!-- Tune Selector -->
+            <div class="tune-selector">
+                <label for="tune-select">Select a tune:</label>
+                <select id="tune-select">
+                    <!-- Options populated by JavaScript -->
+                </select>
+            </div>
+
+            <!-- Score Display -->
+            <div class="score-container">
+                <canvas id="score-canvas"></canvas>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="controls">
+                <button id="play-btn" class="control-btn" title="Play">
+                    <span class="icon">▶</span>
+                </button>
+                <button id="pause-btn" class="control-btn" title="Pause" disabled>
+                    <span class="icon">⏸</span>
+                </button>
+                <button id="stop-btn" class="control-btn" title="Stop" disabled>
+                    <span class="icon">⏹</span>
+                </button>
+            </div>
+
+            <!-- Tempo Control -->
+            <div class="tempo-control">
+                <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
+                <input type="range" id="tempo-slider" min="40" max="200" value="120">
+            </div>
+
+            <!-- Progress Display -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span id="time-display">0:00 / 0:00</span>
+            </div>
+
+            <!-- Tune Info -->
+            <div id="tune-info" class="tune-info">
+                <h3 id="tune-title"></h3>
+                <p id="tune-composer"></p>
+            </div>
+        </main>
+
+        <footer>
+            <p>Use the Web Audio API to synthesize piano sounds</p>
+        </footer>
+    </div>
+
+    <script src="tunes.js"></script>
+    <script src="audio.js"></script>
+    <script src="score.js"></script>
+    <script src="player.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
