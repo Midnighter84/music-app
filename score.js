@@ -1,6 +1,6 @@
 /**
  * Score renderer module
- * Draws musical notation on a canvas element
+ * Draws musical notation on a canvas element with multiple rows
  */
 
 class ScoreRenderer {
@@ -10,8 +10,10 @@ class ScoreRenderer {
 
         // Layout settings
         this.staffLineSpacing = 12;
-        this.staffTop = 80;
-        this.noteSpacing = 50;
+        this.staffHeight = 4 * this.staffLineSpacing; // 5 lines = 4 gaps
+        this.rowSpacing = 100; // Space between staff systems
+        this.firstRowTop = 60;
+        this.noteSpacing = 45;
         this.leftMargin = 80;
         this.rightMargin = 40;
 
@@ -39,20 +41,25 @@ class ScoreRenderer {
 
         // Current playback state
         this.currentNoteIndex = -1;
-        this.scrollOffset = 0;
+        this.noteLayout = []; // Stores calculated positions for all notes
 
         this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        window.addEventListener('resize', () => {
+            this.resizeCanvas();
+            if (this.currentTune) {
+                this.render(this.currentTune, this.currentNoteIndex);
+            }
+        });
     }
 
     /**
-     * Resize canvas to fit container
+     * Resize canvas to fit container width
      */
     resizeCanvas() {
         const container = this.canvas.parentElement;
         const rect = container.getBoundingClientRect();
         this.canvas.width = rect.width;
-        this.canvas.height = 200;
+        // Height will be set dynamically based on number of rows
     }
 
     /**
@@ -64,15 +71,24 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw the staff lines
+     * Get the top Y position for a specific row
      */
-    drawStaff() {
+    getRowTop(rowIndex) {
+        return this.firstRowTop + rowIndex * this.rowSpacing;
+    }
+
+    /**
+     * Draw staff lines for a specific row
+     */
+    drawStaffRow(rowIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+
         this.ctx.strokeStyle = this.colors.staff;
         this.ctx.lineWidth = 1;
 
         // Draw 5 staff lines
         for (let i = 0; i < 5; i++) {
-            const y = this.staffTop + i * this.staffLineSpacing;
+            const y = staffTop + i * this.staffLineSpacing;
             this.ctx.beginPath();
             this.ctx.moveTo(this.leftMargin - 30, y);
             this.ctx.lineTo(this.canvas.width - this.rightMargin, y);
@@ -81,22 +97,26 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw the treble clef
+     * Draw the treble clef for a specific row
      */
-    drawClef() {
+    drawClef(rowIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+
         this.ctx.fillStyle = this.colors.clef;
         this.ctx.font = 'bold 70px serif';
         this.ctx.textBaseline = 'middle';
 
         // Unicode treble clef character
-        const clefY = this.staffTop + 2 * this.staffLineSpacing;
+        const clefY = staffTop + 2 * this.staffLineSpacing;
         this.ctx.fillText('𝄞', this.leftMargin - 25, clefY + 5);
     }
 
     /**
-     * Get Y position for a note on the staff
+     * Get Y position for a note on the staff (relative to a row)
      */
-    getNoteY(pitch, octave) {
+    getNoteY(pitch, octave, rowIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+
         // Remove sharps/flats for position calculation
         const basePitch = pitch.replace('#', '').replace('b', '');
         const key = `${basePitch}${octave}`;
@@ -104,29 +124,64 @@ class ScoreRenderer {
         const position = this.notePositions[key];
         if (position === undefined) {
             // Default to middle line if note not found
-            return this.staffTop + 2 * this.staffLineSpacing;
+            return staffTop + 2 * this.staffLineSpacing;
         }
 
-        return this.staffTop + 2 * this.staffLineSpacing + position * this.staffLineSpacing;
+        return staffTop + 2 * this.staffLineSpacing + position * this.staffLineSpacing;
+    }
+
+    /**
+     * Calculate the layout of notes across multiple rows
+     */
+    calculateLayout(notes) {
+        const layout = [];
+        const availableWidth = this.canvas.width - this.leftMargin - this.rightMargin - 40;
+
+        let currentRow = 0;
+        let xInRow = 0;
+        const startX = this.leftMargin + 40;
+
+        notes.forEach((note, index) => {
+            const noteWidth = this.noteSpacing * Math.max(0.5, note.duration);
+
+            // Check if we need to wrap to next row
+            if (xInRow + noteWidth > availableWidth && xInRow > 0) {
+                currentRow++;
+                xInRow = 0;
+            }
+
+            layout.push({
+                note,
+                index,
+                row: currentRow,
+                x: startX + xInRow,
+                width: noteWidth
+            });
+
+            xInRow += noteWidth;
+        });
+
+        return layout;
     }
 
     /**
      * Draw a single note
      */
-    drawNote(note, x, noteIndex) {
+    drawNote(noteInfo, currentNoteIndex) {
+        const { note, index, row, x } = noteInfo;
+
         if (note.pitch === 'R') {
-            // Draw rest
-            this.drawRest(x, note.duration, noteIndex);
+            this.drawRest(x, note.duration, index, row, currentNoteIndex);
             return;
         }
 
-        const y = this.getNoteY(note.pitch, note.octave);
+        const y = this.getNoteY(note.pitch, note.octave, row);
 
         // Determine note color based on playback state
         let fillColor = this.colors.notes;
-        if (noteIndex === this.currentNoteIndex) {
+        if (index === currentNoteIndex) {
             fillColor = this.colors.currentNote;
-        } else if (noteIndex < this.currentNoteIndex) {
+        } else if (index < currentNoteIndex) {
             fillColor = this.colors.playedNote;
         }
 
@@ -134,7 +189,7 @@ class ScoreRenderer {
         this.ctx.strokeStyle = fillColor;
 
         // Draw ledger lines if needed
-        this.drawLedgerLines(x, y);
+        this.drawLedgerLines(x, y, row);
 
         // Draw note head (oval)
         this.ctx.beginPath();
@@ -158,10 +213,11 @@ class ScoreRenderer {
         this.ctx.restore();
 
         // Draw stem for notes shorter than whole note
+        const staffTop = this.getRowTop(row);
         if (note.duration < 4) {
             this.ctx.lineWidth = 2;
             this.ctx.beginPath();
-            const stemDirection = y > this.staffTop + 2 * this.staffLineSpacing ? -1 : 1;
+            const stemDirection = y > staffTop + 2 * this.staffLineSpacing ? -1 : 1;
             this.ctx.moveTo(x + (stemDirection === -1 ? 7 : -7), y);
             this.ctx.lineTo(x + (stemDirection === -1 ? 7 : -7), y + stemDirection * 35);
             this.ctx.stroke();
@@ -192,8 +248,9 @@ class ScoreRenderer {
     /**
      * Draw ledger lines for notes above or below the staff
      */
-    drawLedgerLines(x, y) {
-        const staffBottom = this.staffTop + 4 * this.staffLineSpacing;
+    drawLedgerLines(x, y, rowIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+        const staffBottom = staffTop + 4 * this.staffLineSpacing;
 
         this.ctx.strokeStyle = this.colors.staff;
         this.ctx.lineWidth = 1;
@@ -211,8 +268,8 @@ class ScoreRenderer {
         }
 
         // Ledger lines above staff
-        if (y < this.staffTop) {
-            let ledgerY = this.staffTop - this.staffLineSpacing;
+        if (y < staffTop) {
+            let ledgerY = staffTop - this.staffLineSpacing;
             while (ledgerY >= y - this.staffLineSpacing / 2) {
                 this.ctx.beginPath();
                 this.ctx.moveTo(x - 12, ledgerY);
@@ -236,13 +293,14 @@ class ScoreRenderer {
     /**
      * Draw a rest symbol
      */
-    drawRest(x, duration, noteIndex) {
-        const y = this.staffTop + 2 * this.staffLineSpacing;
+    drawRest(x, duration, noteIndex, rowIndex, currentNoteIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+        const y = staffTop + 2 * this.staffLineSpacing;
 
         let fillColor = this.colors.notes;
-        if (noteIndex === this.currentNoteIndex) {
+        if (noteIndex === currentNoteIndex) {
             fillColor = this.colors.currentNote;
-        } else if (noteIndex < this.currentNoteIndex) {
+        } else if (noteIndex < currentNoteIndex) {
             fillColor = this.colors.playedNote;
         }
 
@@ -267,93 +325,58 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw the playhead indicator
+     * Draw the playhead indicator on a specific row
      */
-    drawPlayhead(x) {
+    drawPlayhead(x, rowIndex) {
+        const staffTop = this.getRowTop(rowIndex);
+
         if (x < this.leftMargin || x > this.canvas.width - this.rightMargin) return;
 
         this.ctx.strokeStyle = this.colors.playhead;
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
-        this.ctx.moveTo(x, this.staffTop - 20);
-        this.ctx.lineTo(x, this.staffTop + 4 * this.staffLineSpacing + 20);
+        this.ctx.moveTo(x, staffTop - 15);
+        this.ctx.lineTo(x, staffTop + 4 * this.staffLineSpacing + 15);
         this.ctx.stroke();
 
         // Draw triangle at top
         this.ctx.fillStyle = this.colors.playhead;
         this.ctx.beginPath();
-        this.ctx.moveTo(x - 8, this.staffTop - 20);
-        this.ctx.lineTo(x + 8, this.staffTop - 20);
-        this.ctx.lineTo(x, this.staffTop - 10);
+        this.ctx.moveTo(x - 8, staffTop - 15);
+        this.ctx.lineTo(x + 8, staffTop - 15);
+        this.ctx.lineTo(x, staffTop - 5);
         this.ctx.closePath();
         this.ctx.fill();
     }
 
     /**
-     * Calculate note X positions
-     */
-    calculateNotePositions(notes) {
-        const positions = [];
-        let x = this.leftMargin + 40;
-
-        notes.forEach((note, index) => {
-            positions.push({
-                x,
-                note,
-                index
-            });
-            x += this.noteSpacing * Math.max(0.5, note.duration);
-        });
-
-        return positions;
-    }
-
-    /**
      * Render the entire score
      */
-    render(tune, currentNoteIndex = -1, progress = 0) {
+    render(tune, currentNoteIndex = -1) {
         this.currentNoteIndex = currentNoteIndex;
-        this.clear();
+        this.currentTune = tune;
 
         if (!tune || !tune.notes || tune.notes.length === 0) {
-            this.drawStaff();
-            this.drawClef();
+            this.canvas.height = 200;
+            this.clear();
+            this.drawStaffRow(0);
+            this.drawClef(0);
             return;
         }
 
-        // Calculate all note positions
-        const notePositions = this.calculateNotePositions(tune.notes);
-        const totalWidth = notePositions[notePositions.length - 1].x + 50;
-        const visibleWidth = this.canvas.width - this.leftMargin - this.rightMargin;
+        // Calculate layout for all notes
+        this.noteLayout = this.calculateLayout(tune.notes);
 
-        // Calculate scroll offset to keep current note visible
-        if (currentNoteIndex >= 0 && currentNoteIndex < notePositions.length) {
-            const currentNoteX = notePositions[currentNoteIndex].x;
-            const targetScrollPosition = currentNoteX - visibleWidth / 2;
-            this.scrollOffset = Math.max(0, Math.min(targetScrollPosition, totalWidth - visibleWidth));
-        }
+        // Determine number of rows needed
+        const numRows = this.noteLayout.length > 0
+            ? this.noteLayout[this.noteLayout.length - 1].row + 1
+            : 1;
 
-        // Draw staff and clef
-        this.drawStaff();
-        this.drawClef();
+        // Set canvas height based on number of rows
+        const requiredHeight = this.firstRowTop + numRows * this.rowSpacing + 20;
+        this.canvas.height = Math.max(200, requiredHeight);
 
-        // Draw notes with scroll offset
-        this.ctx.save();
-
-        notePositions.forEach(pos => {
-            const adjustedX = pos.x - this.scrollOffset;
-            if (adjustedX > this.leftMargin - 20 && adjustedX < this.canvas.width - this.rightMargin + 20) {
-                this.drawNote(pos.note, adjustedX, pos.index);
-            }
-        });
-
-        // Draw playhead at current position
-        if (currentNoteIndex >= 0 && currentNoteIndex < notePositions.length) {
-            const playheadX = notePositions[currentNoteIndex].x - this.scrollOffset;
-            this.drawPlayhead(playheadX);
-        }
-
-        this.ctx.restore();
+        this.clear();
 
         // Draw title
         this.ctx.fillStyle = '#333';
@@ -361,24 +384,45 @@ class ScoreRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.fillText(tune.title, this.canvas.width / 2, 25);
 
-        // Draw time signature
-        this.ctx.font = 'bold 20px serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(tune.timeSignature[0], this.leftMargin + 15, this.staffTop + this.staffLineSpacing);
-        this.ctx.fillText(tune.timeSignature[1], this.leftMargin + 15, this.staffTop + 3 * this.staffLineSpacing);
+        // Draw each row
+        for (let row = 0; row < numRows; row++) {
+            this.drawStaffRow(row);
+            this.drawClef(row);
+
+            // Draw time signature only on first row
+            if (row === 0) {
+                const staffTop = this.getRowTop(0);
+                this.ctx.fillStyle = '#333';
+                this.ctx.font = 'bold 20px serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(tune.timeSignature[0], this.leftMargin + 15, staffTop + this.staffLineSpacing);
+                this.ctx.fillText(tune.timeSignature[1], this.leftMargin + 15, staffTop + 3 * this.staffLineSpacing);
+            }
+        }
+
+        // Draw all notes
+        this.noteLayout.forEach(noteInfo => {
+            this.drawNote(noteInfo, currentNoteIndex);
+        });
+
+        // Draw playhead at current note position
+        if (currentNoteIndex >= 0 && currentNoteIndex < this.noteLayout.length) {
+            const currentNote = this.noteLayout[currentNoteIndex];
+            this.drawPlayhead(currentNote.x, currentNote.row);
+        }
+
+        // Reset text alignment
+        this.ctx.textAlign = 'left';
     }
 
     /**
-     * Get the X position for a specific note index
+     * Get the layout info for a specific note index
      */
-    getNoteXPosition(notes, noteIndex) {
-        if (!notes || noteIndex < 0 || noteIndex >= notes.length) return this.leftMargin;
-
-        let x = this.leftMargin + 40;
-        for (let i = 0; i < noteIndex; i++) {
-            x += this.noteSpacing * Math.max(0.5, notes[i].duration);
+    getNoteLayout(noteIndex) {
+        if (noteIndex >= 0 && noteIndex < this.noteLayout.length) {
+            return this.noteLayout[noteIndex];
         }
-        return x - this.scrollOffset;
+        return null;
     }
 }
 
