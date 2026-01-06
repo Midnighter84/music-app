@@ -25,8 +25,14 @@ class ScoreRenderer {
             playedNote: '#4ecca3',
             currentNote: '#e94560',
             clef: '#333',
-            background: '#fafafa'
+            background: '#fafafa',
+            fingering: '#888',           // Soft gray for finger numbers
+            fingeringActive: '#e94560',  // Highlight current finger
+            positionChange: '#667eea'    // Purple for position change indicator
         };
+
+        // Fingering data
+        this.fingeringData = [];
 
         // Note position mapping (relative to middle line, in staff line units)
         // Treble clef: Lines are E4, G4, B4, D5, F5 (bottom to top)
@@ -350,6 +356,45 @@ class ScoreRenderer {
     }
 
     /**
+     * Draw finger number above a note
+     */
+    drawFingerNumber(noteInfo, fingerInfo, currentNoteIndex) {
+        if (!fingerInfo || !fingerInfo.showFinger || fingerInfo.finger === null) {
+            return;
+        }
+
+        const { index, row, x } = noteInfo;
+        const staffTop = this.getRowTop(row);
+
+        // Position finger number above the staff
+        const fingerY = staffTop - 25;
+
+        // Determine color based on playback state
+        let color = this.colors.fingering;
+        if (index === currentNoteIndex) {
+            color = this.colors.fingeringActive;
+        }
+
+        // Draw position change indicator if applicable
+        if (fingerInfo.isPositionChange) {
+            this.ctx.fillStyle = this.colors.positionChange;
+            this.ctx.font = 'italic 9px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'bottom';
+            // Show abbreviated position name
+            const posAbbrev = fingerInfo.position + ' pos.';
+            this.ctx.fillText(posAbbrev, x, fingerY - 12);
+        }
+
+        // Draw finger number
+        this.ctx.fillStyle = color;
+        this.ctx.font = '12px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'bottom';
+        this.ctx.fillText(fingerInfo.finger.toString(), x, fingerY);
+    }
+
+    /**
      * Render the entire score
      */
     render(tune, currentNoteIndex = -1) {
@@ -366,6 +411,11 @@ class ScoreRenderer {
 
         // Calculate layout for all notes
         this.noteLayout = this.calculateLayout(tune.notes);
+
+        // Calculate fingering if fingering engine is available
+        if (typeof fingeringEngine !== 'undefined') {
+            this.fingeringData = fingeringEngine.generateFingering(tune.notes);
+        }
 
         // Determine number of rows needed
         const numRows = this.noteLayout.length > 0
@@ -384,6 +434,14 @@ class ScoreRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.fillText(tune.title, this.canvas.width / 2, 25);
 
+        // Draw hand position info below title
+        if (typeof fingeringEngine !== 'undefined') {
+            const positionSummary = fingeringEngine.getPositionSummary(tune.notes);
+            this.ctx.fillStyle = '#666';
+            this.ctx.font = 'italic 11px sans-serif';
+            this.ctx.fillText(positionSummary, this.canvas.width / 2, 42);
+        }
+
         // Draw each row
         for (let row = 0; row < numRows; row++) {
             this.drawStaffRow(row);
@@ -400,9 +458,14 @@ class ScoreRenderer {
             }
         }
 
-        // Draw all notes
-        this.noteLayout.forEach(noteInfo => {
+        // Draw all notes and finger numbers
+        this.noteLayout.forEach((noteInfo, index) => {
             this.drawNote(noteInfo, currentNoteIndex);
+
+            // Draw finger number if available
+            if (this.fingeringData && this.fingeringData[index]) {
+                this.drawFingerNumber(noteInfo, this.fingeringData[index], currentNoteIndex);
+            }
         });
 
         // Draw playhead at current note position
