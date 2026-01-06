@@ -377,9 +377,9 @@ class ScoreRenderer {
             color = this.colors.fingeringActive;
         }
 
-        // Draw finger number in a small circle for clarity
+        // Draw finger number
         this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 11px sans-serif';
+        this.ctx.font = 'bold 14px sans-serif';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(fingerInfo.finger.toString(), x, fingerY);
