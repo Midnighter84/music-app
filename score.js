@@ -27,11 +27,14 @@ class ScoreRenderer {
         };
 
         // Note position mapping (relative to middle line, in staff line units)
+        // Treble clef: Lines are E4, G4, B4, D5, F5 (bottom to top)
+        // Spaces are F4, A4, C5, E5 (bottom to top)
+        // Middle C (C4) is on first ledger line below staff
         this.notePositions = {
-            'C3': 6, 'D3': 5.5, 'E3': 5, 'F3': 4.5, 'G3': 4, 'A3': 3.5, 'B3': 3,
-            'C4': 2.5, 'D4': 2, 'E4': 1.5, 'F4': 1, 'G4': 0.5, 'A4': 0, 'B4': -0.5,
-            'C5': -1, 'D5': -1.5, 'E5': -2, 'F5': -2.5, 'G5': -3, 'A5': -3.5, 'B5': -4,
-            'C6': -4.5
+            'C3': 6.5, 'D3': 6, 'E3': 5.5, 'F3': 5, 'G3': 4.5, 'A3': 4, 'B3': 3.5,
+            'C4': 3, 'D4': 2.5, 'E4': 2, 'F4': 1.5, 'G4': 1, 'A4': 0.5, 'B4': 0,
+            'C5': -0.5, 'D5': -1, 'E5': -1.5, 'F5': -2, 'G5': -2.5, 'A5': -3, 'B5': -3.5,
+            'C6': -4
         };
 
         // Current playback state
