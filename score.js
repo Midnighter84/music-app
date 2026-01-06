@@ -356,18 +356,20 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw finger number above a note
+     * Draw finger number below a note
      */
     drawFingerNumber(noteInfo, fingerInfo, currentNoteIndex) {
         if (!fingerInfo || !fingerInfo.showFinger || fingerInfo.finger === null) {
             return;
         }
 
-        const { index, row, x } = noteInfo;
-        const staffTop = this.getRowTop(row);
+        const { note, index, row, x } = noteInfo;
 
-        // Position finger number above the staff
-        const fingerY = staffTop - 25;
+        // Get the note's Y position
+        const noteY = this.getNoteY(note.pitch, note.octave, row);
+
+        // Position finger number below the note head
+        const fingerY = noteY + 18;
 
         // Determine color based on playback state
         let color = this.colors.fingering;
@@ -375,22 +377,11 @@ class ScoreRenderer {
             color = this.colors.fingeringActive;
         }
 
-        // Draw position change indicator if applicable
-        if (fingerInfo.isPositionChange) {
-            this.ctx.fillStyle = this.colors.positionChange;
-            this.ctx.font = 'italic 9px sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'bottom';
-            // Show abbreviated position name
-            const posAbbrev = fingerInfo.position + ' pos.';
-            this.ctx.fillText(posAbbrev, x, fingerY - 12);
-        }
-
-        // Draw finger number
+        // Draw finger number in a small circle for clarity
         this.ctx.fillStyle = color;
-        this.ctx.font = '12px sans-serif';
+        this.ctx.font = 'bold 11px sans-serif';
         this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'bottom';
+        this.ctx.textBaseline = 'middle';
         this.ctx.fillText(fingerInfo.finger.toString(), x, fingerY);
     }
 
