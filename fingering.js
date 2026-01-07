@@ -55,13 +55,27 @@ class FingeringEngine {
     }
 
     /**
+     * Check if a note entry is a chord (multiple notes)
+     */
+    isChord(noteEntry) {
+        return noteEntry.notes && Array.isArray(noteEntry.notes);
+    }
+
+    /**
      * Get all unique notes in a tune (ignoring octave and accidentals for position analysis)
      */
     getUniqueNotes(notes) {
         const uniqueNotes = new Set();
-        notes.forEach(note => {
-            if (note.pitch !== 'R') {
-                uniqueNotes.add(this.getBaseNote(note.pitch));
+        notes.forEach(noteEntry => {
+            if (this.isChord(noteEntry)) {
+                // Extract notes from chord
+                noteEntry.notes.forEach(note => {
+                    if (note.pitch !== 'R') {
+                        uniqueNotes.add(this.getBaseNote(note.pitch));
+                    }
+                });
+            } else if (noteEntry.pitch !== 'R') {
+                uniqueNotes.add(this.getBaseNote(noteEntry.pitch));
             }
         });
         return Array.from(uniqueNotes);
@@ -211,8 +225,53 @@ class FingeringEngine {
     }
 
     /**
+     * Generate fingering for a chord
+     * Returns array of finger numbers for each note in the chord
+     */
+    generateChordFingering(chordNotes, positionKey) {
+        // Sort notes by pitch (lowest to highest) and assign fingers accordingly
+        const sortedNotes = [...chordNotes].sort((a, b) => {
+            const aValue = this.noteOrder.indexOf(this.getBaseNote(a.pitch)) + a.octave * 7;
+            const bValue = this.noteOrder.indexOf(this.getBaseNote(b.pitch)) + b.octave * 7;
+            return aValue - bValue;
+        });
+
+        // For chords, assign fingers from lowest note (typically 1) to highest (typically 5)
+        // This is a simplified approach - real chord fingering can be more complex
+        const fingers = [];
+        const numNotes = sortedNotes.length;
+
+        sortedNotes.forEach((note, i) => {
+            // Try to use position-based fingering first
+            let finger = this.getFingerForNote(note.pitch, positionKey);
+
+            // If that doesn't work well for a chord, use spread fingering
+            if (numNotes === 2) {
+                finger = i === 0 ? 1 : 5;
+            } else if (numNotes === 3) {
+                finger = [1, 3, 5][i];
+            } else if (numNotes === 4) {
+                finger = [1, 2, 4, 5][i];
+            } else if (numNotes >= 5) {
+                finger = i + 1;
+            }
+
+            fingers.push(finger);
+        });
+
+        // Return fingers in original chord order
+        return chordNotes.map(note => {
+            const sortedIndex = sortedNotes.findIndex(n =>
+                n.pitch === note.pitch && n.octave === note.octave
+            );
+            return fingers[sortedIndex];
+        });
+    }
+
+    /**
      * Generate fingering for an entire tune
      * Returns array of finger numbers (or null for rests/repeats)
+     * Supports both single notes and chords
      */
     generateFingering(notes) {
         if (!notes || notes.length === 0) return [];
@@ -223,30 +282,62 @@ class FingeringEngine {
         const fingering = [];
         let lastFinger = null;
         let lastPitch = null;
+        let lastFingers = null;
 
-        notes.forEach((note, index) => {
+        notes.forEach((noteEntry, index) => {
             // Find which position segment this note belongs to
             const segment = positionSegments.find(s =>
                 index >= s.startIndex && index <= s.endIndex
             ) || positionSegments[0];
 
-            if (note.pitch === 'R') {
+            const isPositionChange = index === segment.startIndex && index > 0;
+
+            // Handle chords
+            if (this.isChord(noteEntry)) {
+                const fingers = this.generateChordFingering(noteEntry.notes, segment.position);
+
+                // Show fingering if it's different from last or first entry
+                const fingersStr = fingers.join(',');
+                const lastFingersStr = lastFingers ? lastFingers.join(',') : '';
+                const showFinger = (fingersStr !== lastFingersStr) ||
+                                  isPositionChange ||
+                                  index === 0;
+
+                fingering.push({
+                    fingers,
+                    finger: null, // No single finger for chords
+                    showFinger,
+                    position: segment.position,
+                    positionName: this.positions[segment.position].name,
+                    isPositionChange,
+                    isChord: true
+                });
+
+                lastFingers = fingers;
+                lastFinger = null;
+                lastPitch = null;
+                return;
+            }
+
+            // Handle rest
+            if (noteEntry.pitch === 'R') {
                 fingering.push({
                     finger: null,
                     showFinger: false,
                     position: segment.position,
                     isPositionChange: false
                 });
+                lastFingers = null;
                 return;
             }
 
-            const finger = this.getFingerForNote(note.pitch, segment.position);
-            const isPositionChange = index === segment.startIndex && index > 0;
+            // Handle single note
+            const finger = this.getFingerForNote(noteEntry.pitch, segment.position);
 
             // Determine if we should show the finger number
             // Show if: different finger, different note, or position change
             const showFinger = (finger !== lastFinger) ||
-                              (note.pitch !== lastPitch) ||
+                              (noteEntry.pitch !== lastPitch) ||
                               isPositionChange ||
                               index === 0; // Always show first note
 
@@ -259,7 +350,8 @@ class FingeringEngine {
             });
 
             lastFinger = finger;
-            lastPitch = note.pitch;
+            lastPitch = noteEntry.pitch;
+            lastFingers = null;
         });
 
         // Apply additional pedagogical rules
@@ -278,7 +370,12 @@ class FingeringEngine {
 
         // Rule 3: Always show finger after a rest
         for (let i = 1; i < fingering.length; i++) {
-            if (notes[i - 1].pitch === 'R' && notes[i].pitch !== 'R') {
+            const prevNote = notes[i - 1];
+            const currNote = notes[i];
+            const isRest = prevNote.pitch === 'R' || (this.isChord(prevNote) === false && prevNote.pitch === 'R');
+            const currIsNote = this.isChord(currNote) || (currNote.pitch && currNote.pitch !== 'R');
+
+            if (isRest && currIsNote) {
                 fingering[i].showFinger = true;
             }
         }
@@ -287,7 +384,7 @@ class FingeringEngine {
         // (simplified: show every 4-8 notes as a reminder)
         const reminderInterval = 8;
         for (let i = reminderInterval; i < fingering.length; i += reminderInterval) {
-            if (fingering[i].finger !== null) {
+            if (fingering[i].finger !== null || fingering[i].fingers) {
                 fingering[i].showFinger = true;
             }
         }

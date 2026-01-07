@@ -171,31 +171,18 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw a single note
+     * Check if a note entry is a chord (multiple notes)
      */
-    drawNote(noteInfo, currentNoteIndex) {
-        const { note, index, row, x } = noteInfo;
+    isChord(noteEntry) {
+        return noteEntry.notes && Array.isArray(noteEntry.notes);
+    }
 
-        if (note.pitch === 'R') {
-            this.drawRest(x, note.duration, index, row, currentNoteIndex);
-            return;
-        }
-
-        const y = this.getNoteY(note.pitch, note.octave, row);
-
-        // Determine note color based on playback state
-        let fillColor = this.colors.notes;
-        if (index === currentNoteIndex) {
-            fillColor = this.colors.currentNote;
-        } else if (index < currentNoteIndex) {
-            fillColor = this.colors.playedNote;
-        }
-
+    /**
+     * Draw a single note head at a specific position
+     */
+    drawNoteHead(x, y, duration, fillColor, row) {
         this.ctx.fillStyle = fillColor;
         this.ctx.strokeStyle = fillColor;
-
-        // Draw ledger lines if needed
-        this.drawLedgerLines(x, y, row);
 
         // Draw note head (oval)
         this.ctx.beginPath();
@@ -203,9 +190,9 @@ class ScoreRenderer {
         this.ctx.translate(x, y);
         this.ctx.scale(1, 0.75);
 
-        const noteRadius = note.duration >= 2 ? 8 : 7;
+        const noteRadius = duration >= 2 ? 8 : 7;
 
-        if (note.duration >= 2) {
+        if (duration >= 2) {
             // Hollow note head for half notes and whole notes
             this.ctx.lineWidth = 2;
             this.ctx.arc(0, 0, noteRadius, 0, Math.PI * 2);
@@ -217,37 +204,125 @@ class ScoreRenderer {
         }
 
         this.ctx.restore();
+    }
 
-        // Draw stem for notes shorter than whole note
-        const staffTop = this.getRowTop(row);
-        if (note.duration < 4) {
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            const stemDirection = y > staffTop + 2 * this.staffLineSpacing ? -1 : 1;
-            this.ctx.moveTo(x + (stemDirection === -1 ? 7 : -7), y);
-            this.ctx.lineTo(x + (stemDirection === -1 ? 7 : -7), y + stemDirection * 35);
-            this.ctx.stroke();
-
-            // Draw flag for eighth notes and shorter
-            if (note.duration <= 0.5) {
-                this.drawFlag(x + (stemDirection === -1 ? 7 : -7), y + stemDirection * 35, stemDirection);
-            }
-        }
-
-        // Draw sharp or flat if needed
-        if (note.pitch.includes('#')) {
+    /**
+     * Draw accidental (sharp or flat) for a note
+     */
+    drawAccidental(x, y, pitch) {
+        if (pitch.includes('#')) {
             this.ctx.font = '16px serif';
             this.ctx.fillText('♯', x - 20, y + 5);
-        } else if (note.pitch.includes('b')) {
+        } else if (pitch.includes('b')) {
             this.ctx.font = '16px serif';
             this.ctx.fillText('♭', x - 18, y + 5);
         }
+    }
 
-        // Draw dot for dotted notes
-        if (note.duration === 1.5 || note.duration === 0.75 || note.duration === 3) {
-            this.ctx.beginPath();
-            this.ctx.arc(x + 15, y, 3, 0, Math.PI * 2);
-            this.ctx.fill();
+    /**
+     * Draw a single note or chord
+     */
+    drawNote(noteInfo, currentNoteIndex) {
+        const { note, index, row, x } = noteInfo;
+
+        // Handle rest
+        if (note.pitch === 'R') {
+            this.drawRest(x, note.duration, index, row, currentNoteIndex);
+            return;
+        }
+
+        // Determine note color based on playback state
+        let fillColor = this.colors.notes;
+        if (index === currentNoteIndex) {
+            fillColor = this.colors.currentNote;
+        } else if (index < currentNoteIndex) {
+            fillColor = this.colors.playedNote;
+        }
+
+        const staffTop = this.getRowTop(row);
+        const duration = note.duration;
+
+        // Check if this is a chord
+        if (this.isChord(note)) {
+            // Draw all notes in the chord
+            const chordNotes = note.notes;
+            const yPositions = [];
+
+            chordNotes.forEach(chordNote => {
+                const y = this.getNoteY(chordNote.pitch, chordNote.octave, row);
+                yPositions.push(y);
+
+                // Draw ledger lines if needed
+                this.drawLedgerLines(x, y, row);
+
+                // Draw note head
+                this.drawNoteHead(x, y, duration, fillColor, row);
+
+                // Draw accidental
+                this.ctx.fillStyle = fillColor;
+                this.drawAccidental(x, y, chordNote.pitch);
+            });
+
+            // Draw single stem for the chord (from outermost note)
+            if (duration < 4 && yPositions.length > 0) {
+                const minY = Math.min(...yPositions);
+                const maxY = Math.max(...yPositions);
+                const avgY = (minY + maxY) / 2;
+
+                // Stem direction based on average position
+                const stemDirection = avgY > staffTop + 2 * this.staffLineSpacing ? -1 : 1;
+                const stemX = x + (stemDirection === -1 ? 7 : -7);
+                const stemStartY = stemDirection === -1 ? maxY : minY;
+                const stemEndY = stemStartY + stemDirection * 35;
+
+                this.ctx.strokeStyle = fillColor;
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(stemX, stemStartY);
+                this.ctx.lineTo(stemX, stemEndY);
+                this.ctx.stroke();
+
+                // Draw flag for eighth notes and shorter
+                if (duration <= 0.5) {
+                    this.drawFlag(stemX, stemEndY, stemDirection);
+                }
+            }
+        } else {
+            // Draw single note
+            const y = this.getNoteY(note.pitch, note.octave, row);
+
+            // Draw ledger lines if needed
+            this.drawLedgerLines(x, y, row);
+
+            // Draw note head
+            this.drawNoteHead(x, y, duration, fillColor, row);
+
+            // Draw stem for notes shorter than whole note
+            if (duration < 4) {
+                this.ctx.strokeStyle = fillColor;
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                const stemDirection = y > staffTop + 2 * this.staffLineSpacing ? -1 : 1;
+                this.ctx.moveTo(x + (stemDirection === -1 ? 7 : -7), y);
+                this.ctx.lineTo(x + (stemDirection === -1 ? 7 : -7), y + stemDirection * 35);
+                this.ctx.stroke();
+
+                // Draw flag for eighth notes and shorter
+                if (duration <= 0.5) {
+                    this.drawFlag(x + (stemDirection === -1 ? 7 : -7), y + stemDirection * 35, stemDirection);
+                }
+            }
+
+            // Draw accidental
+            this.ctx.fillStyle = fillColor;
+            this.drawAccidental(x, y, note.pitch);
+
+            // Draw dot for dotted notes
+            if (duration === 1.5 || duration === 0.75 || duration === 3) {
+                this.ctx.beginPath();
+                this.ctx.arc(x + 15, y, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
         }
     }
 
@@ -356,20 +431,14 @@ class ScoreRenderer {
     }
 
     /**
-     * Draw finger number below a note
+     * Draw finger number below a note or chord
      */
     drawFingerNumber(noteInfo, fingerInfo, currentNoteIndex) {
-        if (!fingerInfo || !fingerInfo.showFinger || fingerInfo.finger === null) {
+        if (!fingerInfo || !fingerInfo.showFinger) {
             return;
         }
 
         const { note, index, row, x } = noteInfo;
-
-        // Get the note's Y position
-        const noteY = this.getNoteY(note.pitch, note.octave, row);
-
-        // Position finger number below the note head
-        const fingerY = noteY + 18;
 
         // Determine color based on playback state
         let color = this.colors.fingering;
@@ -377,12 +446,28 @@ class ScoreRenderer {
             color = this.colors.fingeringActive;
         }
 
-        // Draw finger number
         this.ctx.fillStyle = color;
         this.ctx.font = 'bold 14px sans-serif';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(fingerInfo.finger.toString(), x, fingerY);
+
+        // Check if this is a chord with multiple fingers
+        if (fingerInfo.fingers && Array.isArray(fingerInfo.fingers)) {
+            // Draw finger number below each note in the chord
+            fingerInfo.fingers.forEach((finger, i) => {
+                if (finger !== null && note.notes && note.notes[i]) {
+                    const chordNote = note.notes[i];
+                    const noteY = this.getNoteY(chordNote.pitch, chordNote.octave, row);
+                    const fingerY = noteY + 18;
+                    this.ctx.fillText(finger.toString(), x, fingerY);
+                }
+            });
+        } else if (fingerInfo.finger !== null) {
+            // Single note
+            const noteY = this.getNoteY(note.pitch, note.octave, row);
+            const fingerY = noteY + 18;
+            this.ctx.fillText(fingerInfo.finger.toString(), x, fingerY);
+        }
     }
 
     /**

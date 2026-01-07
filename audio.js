@@ -166,7 +166,33 @@ class AudioEngine {
     }
 
     /**
-     * Schedule a sequence of notes
+     * Check if a note entry is a chord (multiple notes)
+     */
+    isChord(noteEntry) {
+        return noteEntry.notes && Array.isArray(noteEntry.notes);
+    }
+
+    /**
+     * Play a chord (multiple notes simultaneously)
+     */
+    playChord(chordNotes, duration, startTime = null) {
+        if (!this.isInitialized) {
+            this.init();
+        }
+
+        const time = startTime !== null ? startTime : this.audioContext.currentTime;
+
+        // Play each note in the chord
+        chordNotes.forEach(note => {
+            if (note.pitch !== 'R') {
+                const frequency = this.getFrequency(note.pitch, note.octave);
+                this.createPianoSound(frequency, time, duration);
+            }
+        });
+    }
+
+    /**
+     * Schedule a sequence of notes (supports both single notes and chords)
      */
     scheduleNotes(notes, tempo, startCallback, noteCallback) {
         if (!this.isInitialized) {
@@ -179,18 +205,22 @@ class AudioEngine {
 
         const scheduledNotes = [];
 
-        notes.forEach((note, index) => {
-            const durationInSeconds = note.duration / beatsPerSecond;
+        notes.forEach((noteEntry, index) => {
+            const durationInSeconds = noteEntry.duration / beatsPerSecond;
 
             scheduledNotes.push({
-                note,
+                note: noteEntry,
                 index,
                 startTime: currentTime,
                 endTime: currentTime + durationInSeconds
             });
 
-            if (note.pitch !== 'R') {
-                this.playNote(note.pitch, note.octave, durationInSeconds, currentTime);
+            if (this.isChord(noteEntry)) {
+                // Play all notes in the chord simultaneously
+                this.playChord(noteEntry.notes, durationInSeconds, currentTime);
+            } else if (noteEntry.pitch !== 'R') {
+                // Play single note
+                this.playNote(noteEntry.pitch, noteEntry.octave, durationInSeconds, currentTime);
             }
 
             currentTime += durationInSeconds;

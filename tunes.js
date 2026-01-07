@@ -7,13 +7,18 @@
  *   - timeSignature: [beats per measure, beat unit]
  *   - keySignature: key (e.g., "C", "G", "F")
  *   - defaultTempo: suggested BPM
- *   - notes: array of note objects
+ *   - notes: array of note objects or chord objects
  *
- * Each note has:
+ * Single note format:
  *   - pitch: note name (C, D, E, F, G, A, B) with optional # for sharp, b for flat
  *            or "R" for rest
  *   - octave: octave number (4 = middle C octave)
  *   - duration: length in beats (1 = quarter note at standard time)
+ *
+ * Chord format (multiple notes played together):
+ *   - duration: length in beats
+ *   - notes: array of { pitch, octave } objects
+ *   Example: { duration: 1, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] }
  */
 
 const TUNES = [
@@ -272,6 +277,58 @@ const TUNES = [
             { pitch: "C", octave: 4, duration: 1 },
             { pitch: "G", octave: 3, duration: 1 },
             { pitch: "C", octave: 4, duration: 2 }
+        ]
+    },
+    {
+        id: "simple_chords",
+        title: "Simple Chord Progression",
+        composer: "Exercise",
+        timeSignature: [4, 4],
+        keySignature: "C",
+        defaultTempo: 80,
+        notes: [
+            // C Major chord
+            { duration: 2, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] },
+            // Single notes
+            { pitch: "G", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            // F Major chord
+            { duration: 2, notes: [{ pitch: "C", octave: 4 }, { pitch: "F", octave: 4 }, { pitch: "A", octave: 4 }] },
+            // Single notes
+            { pitch: "A", octave: 4, duration: 1 },
+            { pitch: "F", octave: 4, duration: 1 },
+            // G Major chord
+            { duration: 2, notes: [{ pitch: "B", octave: 3 }, { pitch: "D", octave: 4 }, { pitch: "G", octave: 4 }] },
+            // Single notes
+            { pitch: "G", octave: 4, duration: 1 },
+            { pitch: "D", octave: 4, duration: 1 },
+            // C Major chord (resolution)
+            { duration: 4, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] }
+        ]
+    },
+    {
+        id: "melody_with_chords",
+        title: "Melody with Accompaniment",
+        composer: "Exercise",
+        timeSignature: [4, 4],
+        keySignature: "C",
+        defaultTempo: 100,
+        notes: [
+            // Melody line with occasional chords
+            { pitch: "E", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            { pitch: "F", octave: 4, duration: 1 },
+            { pitch: "G", octave: 4, duration: 1 },
+            // G chord
+            { duration: 2, notes: [{ pitch: "G", octave: 4 }, { pitch: "B", octave: 4 }] },
+            { pitch: "F", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            // C chord
+            { duration: 2, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }] },
+            { pitch: "D", octave: 4, duration: 1 },
+            { pitch: "C", octave: 4, duration: 1 },
+            // Final C chord
+            { duration: 4, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] }
         ]
     }
 ];
