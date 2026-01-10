@@ -290,6 +290,12 @@ class ScoreRenderer {
         // Left hand: show C2-B4, Right hand: show C3-B5
         const startOctave = isLeftHand ? 2 : 3;
 
+        // Determine which octave the position should be highlighted in
+        // Use the note's actual octave, or default to middle of range
+        const noteOctave = fingeringInfo.octave || (isLeftHand ? 3 : 4);
+        // The position octave is the octave index (0, 1, 2) within our displayed range
+        const positionOctaveIndex = noteOctave - startOctave;
+
         // Note names for white keys
         const whiteKeyNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
         // Black key positions within an octave (after which white key)
@@ -305,14 +311,40 @@ class ScoreRenderer {
         // Draw white keys
         for (let octave = 0; octave < numOctaves; octave++) {
             const actualOctave = startOctave + octave;
+            // Only highlight position in the correct octave
+            const isPositionOctave = (octave === positionOctaveIndex) ||
+                                     (octave === positionOctaveIndex + 1 && positionKeys.includes('C') &&
+                                      positionKeys.indexOf('C') > positionKeys.indexOf(positionData.baseNote));
+
             for (let keyInOctave = 0; keyInOctave < whiteKeysPerOctave; keyInOctave++) {
                 const keyIndex = octave * whiteKeysPerOctave + keyInOctave;
                 const keyX = keysStartX + keyIndex * keyWidth;
                 const keyName = whiteKeyNotes[keyInOctave];
 
-                // Check if this key is part of the position
-                const isInPosition = positionKeys.includes(keyName);
-                const finger = fingerMap[keyName];
+                // Check if this key is part of the position (only in the target octave)
+                // Handle positions that span two octaves (e.g., G position: G-A-B-C-D where C-D are in next octave)
+                let isInPosition = false;
+                let finger = null;
+
+                if (positionKeys.includes(keyName)) {
+                    const keyIndexInPosition = positionKeys.indexOf(keyName);
+                    const baseNoteIndex = positionKeys.indexOf(positionData.baseNote);
+
+                    // Keys before or at the base note are in positionOctaveIndex
+                    // Keys after the base note that wrap (higher index but lower on keyboard) are in next octave
+                    if (keyIndexInPosition >= baseNoteIndex) {
+                        // This key is at or after the base note in the position
+                        isInPosition = (octave === positionOctaveIndex);
+                    } else {
+                        // This key wraps to the next octave (e.g., C, D in G position)
+                        isInPosition = (octave === positionOctaveIndex + 1);
+                    }
+
+                    if (isInPosition) {
+                        finger = fingerMap[keyName];
+                    }
+                }
+
                 const isCurrentKey = keyName === currentBasePitch && isInPosition;
 
                 // Key background
@@ -340,7 +372,7 @@ class ScoreRenderer {
                     this.ctx.fillText(label, keyX + keyWidth / 2, keysStartY + keyHeight - 5);
                 }
 
-                // Finger number (only for position keys)
+                // Finger number (only for position keys in the target octave)
                 if (isInPosition && finger) {
                     this.ctx.fillStyle = isCurrentKey ? '#fff' : '#333';
                     this.ctx.font = 'bold 12px sans-serif';
@@ -356,9 +388,18 @@ class ScoreRenderer {
                 const keyIndex = octave * whiteKeysPerOctave + i;
                 const keyX = keysStartX + (keyIndex + 1) * keyWidth - blackKeyWidth / 2;
 
-                // Check if this key is part of the position (for F# in D position)
-                const isInPosition = positionKeys.includes(blackKeyName) || fingerMap[blackKeyName];
-                const finger = fingerMap[blackKeyName];
+                // Check if this key is part of the position (only in the target octave)
+                let isInPosition = false;
+                let finger = null;
+
+                if (positionKeys.includes(blackKeyName) || fingerMap[blackKeyName]) {
+                    // Black keys typically stay in the same octave as their position
+                    isInPosition = (octave === positionOctaveIndex);
+                    if (isInPosition) {
+                        finger = fingerMap[blackKeyName];
+                    }
+                }
+
                 const isCurrentKey = currentPitch && currentPitch.includes('#') &&
                                     blackKeyName === currentPitch && isInPosition;
 
