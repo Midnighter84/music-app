@@ -39,6 +39,11 @@ class TunePlayer {
         if (scoreRenderer) {
             scoreRenderer.render(tune, -1);
         }
+
+        // Initialize live keyboard with tune positions
+        if (liveKeyboard) {
+            liveKeyboard.updateFromTune(tune);
+        }
     }
 
     /**
@@ -163,6 +168,9 @@ class TunePlayer {
                 if (this.onNoteChange) {
                     this.onNoteChange(this.currentNoteIndex);
                 }
+
+                // Update live keyboard
+                this.updateLiveKeyboard();
             }
 
             // Calculate progress
@@ -244,6 +252,11 @@ class TunePlayer {
             scoreRenderer.render(this.currentTune, -1);
         }
 
+        // Clear pressed keys but keep positions visible
+        if (liveKeyboard) {
+            liveKeyboard.clearPressedKeys();
+        }
+
         // Update progress
         if (this.onProgressUpdate) {
             this.onProgressUpdate(0, 0, this.getTotalDuration());
@@ -269,6 +282,35 @@ class TunePlayer {
      */
     getCurrentNoteIndex() {
         return this.currentNoteIndex;
+    }
+
+    /**
+     * Update the live keyboard display
+     */
+    updateLiveKeyboard() {
+        if (!liveKeyboard || !this.currentTune) return;
+
+        const noteIndex = this.currentNoteIndex;
+        if (noteIndex < 0 || noteIndex >= this.currentTune.notes.length) {
+            liveKeyboard.clear();
+            return;
+        }
+
+        const note = this.currentTune.notes[noteIndex];
+
+        // Get fingering data for this note
+        if (typeof fingeringEngine !== 'undefined') {
+            const fingeringData = fingeringEngine.generateFingering(this.currentTune.notes);
+            const fingerInfo = fingeringData[noteIndex];
+
+            if (fingerInfo) {
+                liveKeyboard.updateFromFingeringInfo(fingerInfo, note);
+            } else {
+                liveKeyboard.clear();
+            }
+        } else {
+            liveKeyboard.clear();
+        }
     }
 }
 
