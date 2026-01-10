@@ -34,16 +34,32 @@ class ScoreRenderer {
             positionChange: '#667eea'    // Purple for position change indicator
         };
 
-        // Hand position colors for position mode
-        this.positionColors = {
-            'C': '#3498db',  // Blue for C Position
-            'G': '#e74c3c',  // Red for G Position
-            'F': '#2ecc71',  // Green for F Position
-            'D': '#9b59b6'   // Purple for D Position
+        // Hand position colors for position mode (right hand - lighter/warmer)
+        this.rightHandPositionColors = {
+            'C': '#5dade2',  // Light blue for RH C Position
+            'G': '#ec7063',  // Light red for RH G Position
+            'F': '#58d68d',  // Light green for RH F Position
+            'D': '#bb8fce'   // Light purple for RH D Position
         };
+
+        // Hand position colors for position mode (left hand - darker/cooler)
+        this.leftHandPositionColors = {
+            'C': '#2874a6',  // Dark blue for LH C Position
+            'G': '#b03a2e',  // Dark red for LH G Position
+            'F': '#1e8449',  // Dark green for LH F Position
+            'D': '#6c3483'   // Dark purple for LH D Position
+        };
+
+        // Legacy: combined position colors (for backward compatibility)
+        this.positionColors = this.rightHandPositionColors;
 
         // Show hand position mode (color notes by position)
         this.showPositionMode = false;
+
+        // Hover state for keyboard overlay
+        this.hoveredNoteIndex = -1;
+        this.hoverX = 0;
+        this.hoverY = 0;
 
         // Fingering data
         this.fingeringData = [];
@@ -85,6 +101,81 @@ class ScoreRenderer {
                 this.render(this.currentTune, this.currentNoteIndex);
             }
         });
+
+        // Mouse event listeners for hover detection
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseleave', () => this.handleMouseLeave());
+    }
+
+    /**
+     * Handle mouse move for hover detection
+     */
+    handleMouseMove(e) {
+        if (!this.showPositionMode || !this.noteLayout.length) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Find if we're hovering over a note
+        const hoveredIndex = this.findNoteAtPosition(x, y);
+
+        if (hoveredIndex !== this.hoveredNoteIndex) {
+            this.hoveredNoteIndex = hoveredIndex;
+            this.hoverX = x;
+            this.hoverY = y;
+            // Re-render to show/hide keyboard overlay
+            if (this.currentTune) {
+                this.render(this.currentTune, this.currentNoteIndex);
+            }
+        }
+    }
+
+    /**
+     * Handle mouse leave
+     */
+    handleMouseLeave() {
+        if (this.hoveredNoteIndex !== -1) {
+            this.hoveredNoteIndex = -1;
+            if (this.currentTune) {
+                this.render(this.currentTune, this.currentNoteIndex);
+            }
+        }
+    }
+
+    /**
+     * Find note at a given canvas position
+     */
+    findNoteAtPosition(x, y) {
+        const hitRadius = 15; // Pixels around note center to detect hover
+
+        for (let i = 0; i < this.noteLayout.length; i++) {
+            const noteInfo = this.noteLayout[i];
+            const note = noteInfo.note;
+
+            if (note.pitch === 'R') continue;
+
+            // Get Y position for the note
+            let noteY;
+            if (this.isChord(note)) {
+                // For chords, use the center of all notes
+                const yPositions = note.notes.map(n =>
+                    this.getNoteY(n.pitch, n.octave, noteInfo.row)
+                );
+                noteY = (Math.min(...yPositions) + Math.max(...yPositions)) / 2;
+            } else {
+                noteY = this.getNoteY(note.pitch, note.octave, noteInfo.row);
+            }
+
+            // Check if mouse is within hit radius
+            const dx = x - noteInfo.x;
+            const dy = y - noteY;
+            if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /**
@@ -119,7 +210,213 @@ class ScoreRenderer {
      * Get position colors for legend display
      */
     getPositionColors() {
-        return this.positionColors;
+        return {
+            rightHand: this.rightHandPositionColors,
+            leftHand: this.leftHandPositionColors
+        };
+    }
+
+    /**
+     * Get position color based on hand
+     */
+    getPositionColor(position, isLeftHand) {
+        const colors = isLeftHand ? this.leftHandPositionColors : this.rightHandPositionColors;
+        return colors[position] || this.colors.notes;
+    }
+
+    /**
+     * Draw keyboard overlay showing finger positions
+     */
+    drawKeyboardOverlay(fingeringInfo, noteX, noteY) {
+        if (!fingeringInfo || !fingeringInfo.position) return;
+
+        const isLeftHand = fingeringInfo.isLeftHand;
+        const position = fingeringInfo.position;
+        const currentFinger = fingeringInfo.finger;
+        const positions = isLeftHand ?
+            (typeof fingeringEngine !== 'undefined' ? fingeringEngine.leftHandPositions : null) :
+            (typeof fingeringEngine !== 'undefined' ? fingeringEngine.rightHandPositions : null);
+
+        if (!positions || !positions[position]) return;
+
+        const positionData = positions[position];
+
+        // Keyboard dimensions
+        const keyWidth = 24;
+        const keyHeight = 80;
+        const blackKeyWidth = 16;
+        const blackKeyHeight = 50;
+        const padding = 15;
+        const overlayWidth = keyWidth * 8 + padding * 2;
+        const overlayHeight = keyHeight + 60 + padding * 2;
+
+        // Position the overlay near the note but within canvas bounds
+        let overlayX = noteX - overlayWidth / 2;
+        let overlayY = noteY - overlayHeight - 20;
+
+        // Keep within canvas bounds
+        overlayX = Math.max(10, Math.min(overlayX, this.canvas.width - overlayWidth - 10));
+        overlayY = Math.max(10, overlayY);
+        if (overlayY < 10) {
+            overlayY = noteY + 30;
+        }
+
+        // Draw overlay background
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+        this.ctx.strokeStyle = '#ccc';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // Draw title
+        const handLabel = isLeftHand ? 'Left Hand' : 'Right Hand';
+        this.ctx.fillStyle = '#333';
+        this.ctx.font = 'bold 12px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`${handLabel} - ${positionData.name}`, overlayX + overlayWidth / 2, overlayY + 18);
+
+        // Draw piano keys
+        const keysStartX = overlayX + padding;
+        const keysStartY = overlayY + 35;
+
+        // All white keys in an octave: C D E F G A B C
+        const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C2'];
+        // Black keys positions (relative to white key index)
+        const blackKeyPositions = {
+            0: 'C#', // After C
+            1: 'D#', // After D
+            3: 'F#', // After F
+            4: 'G#', // After G
+            5: 'A#'  // After A
+        };
+
+        // Finger positions for this hand position
+        const fingerMap = positionData.mapping;
+        const positionKeys = positionData.keys;
+
+        // Draw white keys
+        whiteKeys.forEach((key, i) => {
+            const keyX = keysStartX + i * keyWidth;
+            const keyName = key.replace('2', '');
+
+            // Check if this key is part of the position
+            const isInPosition = positionKeys.includes(keyName);
+            const finger = fingerMap[keyName];
+            const isCurrentFinger = finger === currentFinger && isInPosition;
+
+            // Key background
+            if (isCurrentFinger) {
+                this.ctx.fillStyle = '#e94560';
+            } else if (isInPosition) {
+                this.ctx.fillStyle = this.getPositionColor(position, isLeftHand);
+            } else {
+                this.ctx.fillStyle = '#fff';
+            }
+
+            this.ctx.strokeStyle = '#333';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.rect(keyX, keysStartY, keyWidth - 1, keyHeight);
+            this.ctx.fill();
+            this.ctx.stroke();
+
+            // Key label
+            this.ctx.fillStyle = isCurrentFinger || isInPosition ? '#fff' : '#666';
+            this.ctx.font = '10px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(keyName, keyX + keyWidth / 2, keysStartY + keyHeight - 8);
+
+            // Finger number
+            if (isInPosition && finger) {
+                this.ctx.fillStyle = isCurrentFinger ? '#fff' : '#333';
+                this.ctx.font = 'bold 14px sans-serif';
+                this.ctx.fillText(finger.toString(), keyX + keyWidth / 2, keysStartY + keyHeight - 25);
+            }
+        });
+
+        // Draw black keys
+        Object.entries(blackKeyPositions).forEach(([whiteKeyIndex, blackKeyName]) => {
+            const i = parseInt(whiteKeyIndex);
+            const keyX = keysStartX + (i + 1) * keyWidth - blackKeyWidth / 2;
+
+            // Check if this key is part of the position (for F# in D position)
+            const baseName = blackKeyName.replace('#', '');
+            const isInPosition = positionKeys.includes(blackKeyName) || fingerMap[blackKeyName];
+            const finger = fingerMap[blackKeyName];
+            const isCurrentFinger = finger === currentFinger && isInPosition;
+
+            if (isCurrentFinger) {
+                this.ctx.fillStyle = '#e94560';
+            } else if (isInPosition) {
+                this.ctx.fillStyle = this.getPositionColor(position, isLeftHand);
+            } else {
+                this.ctx.fillStyle = '#222';
+            }
+
+            this.ctx.beginPath();
+            this.ctx.rect(keyX, keysStartY, blackKeyWidth, blackKeyHeight);
+            this.ctx.fill();
+            this.ctx.strokeStyle = '#000';
+            this.ctx.stroke();
+
+            // Finger number for black keys in position
+            if (isInPosition && finger) {
+                this.ctx.fillStyle = '#fff';
+                this.ctx.font = 'bold 11px sans-serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(finger.toString(), keyX + blackKeyWidth / 2, keysStartY + blackKeyHeight - 8);
+            }
+        });
+
+        // Draw hand indicator (simple representation)
+        this.drawHandIndicator(overlayX + overlayWidth / 2, keysStartY + keyHeight + 25, isLeftHand, currentFinger);
+    }
+
+    /**
+     * Draw a simple hand indicator showing which finger is active
+     */
+    drawHandIndicator(centerX, centerY, isLeftHand, activeFinger) {
+        // Simple circles representing fingers
+        const fingerSpacing = 18;
+        const fingerRadius = 7;
+
+        // Finger order for display (pinky to thumb or thumb to pinky)
+        const fingerOrder = isLeftHand ? [5, 4, 3, 2, 1] : [1, 2, 3, 4, 5];
+
+        fingerOrder.forEach((finger, i) => {
+            const x = centerX + (i - 2) * fingerSpacing;
+            const y = centerY;
+
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, fingerRadius, 0, Math.PI * 2);
+
+            if (finger === activeFinger) {
+                this.ctx.fillStyle = '#e94560';
+            } else {
+                this.ctx.fillStyle = '#ddd';
+            }
+            this.ctx.fill();
+
+            this.ctx.strokeStyle = '#999';
+            this.ctx.lineWidth = 1;
+            this.ctx.stroke();
+
+            // Finger number
+            this.ctx.fillStyle = finger === activeFinger ? '#fff' : '#666';
+            this.ctx.font = '9px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(finger.toString(), x, y);
+        });
+
+        // Label
+        this.ctx.fillStyle = '#666';
+        this.ctx.font = '10px sans-serif';
+        this.ctx.textBaseline = 'alphabetic';
+        const label = isLeftHand ? 'LH' : 'RH';
+        this.ctx.fillText(label, centerX - fingerSpacing * 3, centerY + 3);
     }
 
     /**
@@ -394,9 +691,11 @@ class ScoreRenderer {
 
         // Check if position mode is enabled and we have fingering data
         if (this.showPositionMode && this.fingeringData && this.fingeringData[index]) {
-            const position = this.fingeringData[index].position;
-            if (position && this.positionColors[position]) {
-                fillColor = this.positionColors[position];
+            const fingerInfo = this.fingeringData[index];
+            const position = fingerInfo.position;
+            const isLeftHand = fingerInfo.isLeftHand;
+            if (position) {
+                fillColor = this.getPositionColor(position, isLeftHand);
             }
         }
 
@@ -406,10 +705,12 @@ class ScoreRenderer {
         } else if (index < currentNoteIndex) {
             // In position mode, dim the played notes but keep position tint
             if (this.showPositionMode && this.fingeringData && this.fingeringData[index]) {
-                const position = this.fingeringData[index].position;
-                if (position && this.positionColors[position]) {
+                const fingerInfo = this.fingeringData[index];
+                const position = fingerInfo.position;
+                const isLeftHand = fingerInfo.isLeftHand;
+                if (position) {
                     // Lighten the position color for played notes
-                    fillColor = this.lightenColor(this.positionColors[position], 0.4);
+                    fillColor = this.lightenColor(this.getPositionColor(position, isLeftHand), 0.4);
                 } else {
                     fillColor = this.colors.playedNote;
                 }
@@ -753,6 +1054,27 @@ class ScoreRenderer {
 
         // Reset text alignment
         this.ctx.textAlign = 'left';
+
+        // Draw keyboard overlay if hovering over a note in position mode
+        if (this.showPositionMode && this.hoveredNoteIndex >= 0 && this.hoveredNoteIndex < this.noteLayout.length) {
+            const hoveredNote = this.noteLayout[this.hoveredNoteIndex];
+            const fingerInfo = this.fingeringData[this.hoveredNoteIndex];
+
+            if (fingerInfo && hoveredNote.note.pitch !== 'R') {
+                // Get Y position for overlay positioning
+                let noteY;
+                if (this.isChord(hoveredNote.note)) {
+                    const yPositions = hoveredNote.note.notes.map(n =>
+                        this.getNoteY(n.pitch, n.octave, hoveredNote.row)
+                    );
+                    noteY = Math.min(...yPositions);
+                } else {
+                    noteY = this.getNoteY(hoveredNote.note.pitch, hoveredNote.note.octave, hoveredNote.row);
+                }
+
+                this.drawKeyboardOverlay(fingerInfo, hoveredNote.x, noteY);
+            }
+        }
     }
 
     /**

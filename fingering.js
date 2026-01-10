@@ -9,42 +9,104 @@
 
 class FingeringEngine {
     constructor() {
-        // Define hand positions (right hand)
+        // Define hand positions for RIGHT hand
         // Each position maps note names to finger numbers
-        this.positions = {
+        // Right hand: finger 1 (thumb) on base note, going up to finger 5
+        this.rightHandPositions = {
             // C Position: C-D-E-F-G with fingers 1-2-3-4-5
             'C': {
                 name: 'C Position',
                 baseNote: 'C',
                 mapping: { 'C': 1, 'D': 2, 'E': 3, 'F': 4, 'G': 5 },
-                // Notes that can be reached with a stretch
-                extended: { 'A': 5, 'B': 5 }
+                extended: { 'A': 5, 'B': 5 },
+                // Keys covered (for keyboard display): C4, D4, E4, F4, G4
+                keys: ['C', 'D', 'E', 'F', 'G']
             },
             // G Position: G-A-B-C-D with fingers 1-2-3-4-5
             'G': {
                 name: 'G Position',
                 baseNote: 'G',
                 mapping: { 'G': 1, 'A': 2, 'B': 3, 'C': 4, 'D': 5 },
-                extended: { 'E': 5, 'F': 4 }
+                extended: { 'E': 5, 'F': 4 },
+                keys: ['G', 'A', 'B', 'C', 'D']
             },
             // F Position: F-G-A-B-C with fingers 1-2-3-4-5
             'F': {
                 name: 'F Position',
                 baseNote: 'F',
                 mapping: { 'F': 1, 'G': 2, 'A': 3, 'B': 4, 'C': 5 },
-                extended: { 'D': 5, 'E': 4 }
+                extended: { 'D': 5, 'E': 4 },
+                keys: ['F', 'G', 'A', 'B', 'C']
             },
             // D Position: D-E-F#-G-A with fingers 1-2-3-4-5
             'D': {
                 name: 'D Position',
                 baseNote: 'D',
                 mapping: { 'D': 1, 'E': 2, 'F': 3, 'F#': 3, 'G': 4, 'A': 5 },
-                extended: { 'B': 5, 'C': 4 }
+                extended: { 'B': 5, 'C': 4 },
+                keys: ['D', 'E', 'F', 'G', 'A']
             }
         };
 
+        // Define hand positions for LEFT hand (mirrored fingering)
+        // Left hand: finger 5 (pinky) on base note, going up to finger 1 (thumb)
+        this.leftHandPositions = {
+            // C Position: C-D-E-F-G with fingers 5-4-3-2-1
+            'C': {
+                name: 'C Position',
+                baseNote: 'C',
+                mapping: { 'C': 5, 'D': 4, 'E': 3, 'F': 2, 'G': 1 },
+                extended: { 'A': 1, 'B': 1 },
+                keys: ['C', 'D', 'E', 'F', 'G']
+            },
+            // G Position: G-A-B-C-D with fingers 5-4-3-2-1
+            'G': {
+                name: 'G Position',
+                baseNote: 'G',
+                mapping: { 'G': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 },
+                extended: { 'E': 1, 'F': 2 },
+                keys: ['G', 'A', 'B', 'C', 'D']
+            },
+            // F Position: F-G-A-B-C with fingers 5-4-3-2-1
+            'F': {
+                name: 'F Position',
+                baseNote: 'F',
+                mapping: { 'F': 5, 'G': 4, 'A': 3, 'B': 2, 'C': 1 },
+                extended: { 'D': 1, 'E': 2 },
+                keys: ['F', 'G', 'A', 'B', 'C']
+            },
+            // D Position: D-E-F-G-A with fingers 5-4-3-2-1
+            'D': {
+                name: 'D Position',
+                baseNote: 'D',
+                mapping: { 'D': 5, 'E': 4, 'F': 3, 'F#': 3, 'G': 2, 'A': 1 },
+                extended: { 'B': 1, 'C': 2 },
+                keys: ['D', 'E', 'F', 'G', 'A']
+            }
+        };
+
+        // Default to right hand positions for backward compatibility
+        this.positions = this.rightHandPositions;
+
+        // Bass clef threshold (octave 3 and below = left hand)
+        this.bassClefThreshold = 3;
+
         // Note order for calculating intervals
         this.noteOrder = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    }
+
+    /**
+     * Determine if a note is for left hand based on octave
+     */
+    isLeftHand(octave) {
+        return octave <= this.bassClefThreshold;
+    }
+
+    /**
+     * Get the appropriate positions map for a hand
+     */
+    getPositionsForHand(isLeftHand) {
+        return isLeftHand ? this.leftHandPositions : this.rightHandPositions;
     }
 
     /**
@@ -185,12 +247,14 @@ class FingeringEngine {
     }
 
     /**
-     * Get finger number for a specific note given a position
+     * Get finger number for a specific note given a position and hand
      */
-    getFingerForNote(pitch, positionKey) {
+    getFingerForNote(pitch, positionKey, octave = 4) {
         if (pitch === 'R') return null; // Rest
 
-        const position = this.positions[positionKey];
+        const isLeftHand = this.isLeftHand(octave);
+        const positions = this.getPositionsForHand(isLeftHand);
+        const position = positions[positionKey];
         const baseNote = this.getBaseNote(pitch);
 
         // Check main mapping first
@@ -204,14 +268,15 @@ class FingeringEngine {
         }
 
         // Fallback: try to find closest finger
-        return this.estimateFinger(baseNote, positionKey);
+        return this.estimateFinger(baseNote, positionKey, isLeftHand);
     }
 
     /**
      * Estimate finger for notes outside standard position
      */
-    estimateFinger(baseNote, positionKey) {
-        const position = this.positions[positionKey];
+    estimateFinger(baseNote, positionKey, isLeftHand = false) {
+        const positions = this.getPositionsForHand(isLeftHand);
+        const position = positions[positionKey];
         const noteIdx = this.noteOrder.indexOf(baseNote);
         const baseIdx = this.noteOrder.indexOf(position.baseNote);
 
@@ -294,6 +359,11 @@ class FingeringEngine {
 
             // Handle chords
             if (this.isChord(noteEntry)) {
+                // Determine hand based on average octave of chord
+                const avgOctave = noteEntry.notes.reduce((sum, n) => sum + n.octave, 0) / noteEntry.notes.length;
+                const isLeftHand = this.isLeftHand(Math.round(avgOctave));
+                const positions = this.getPositionsForHand(isLeftHand);
+
                 const fingers = this.generateChordFingering(noteEntry.notes, segment.position);
 
                 // Show fingering if it's different from last or first entry
@@ -308,9 +378,12 @@ class FingeringEngine {
                     finger: null, // No single finger for chords
                     showFinger,
                     position: segment.position,
-                    positionName: this.positions[segment.position].name,
+                    positionName: positions[segment.position].name,
                     isPositionChange,
-                    isChord: true
+                    isChord: true,
+                    isLeftHand,
+                    octave: Math.round(avgOctave),
+                    pitch: noteEntry.notes[0].pitch // Primary pitch for display
                 });
 
                 lastFingers = fingers;
@@ -325,14 +398,17 @@ class FingeringEngine {
                     finger: null,
                     showFinger: false,
                     position: segment.position,
-                    isPositionChange: false
+                    isPositionChange: false,
+                    isLeftHand: false
                 });
                 lastFingers = null;
                 return;
             }
 
             // Handle single note
-            const finger = this.getFingerForNote(noteEntry.pitch, segment.position);
+            const isLeftHand = this.isLeftHand(noteEntry.octave);
+            const positions = this.getPositionsForHand(isLeftHand);
+            const finger = this.getFingerForNote(noteEntry.pitch, segment.position, noteEntry.octave);
 
             // Determine if we should show the finger number
             // Show if: different finger, different note, or position change
@@ -345,8 +421,11 @@ class FingeringEngine {
                 finger,
                 showFinger,
                 position: segment.position,
-                positionName: this.positions[segment.position].name,
-                isPositionChange
+                positionName: positions[segment.position].name,
+                isPositionChange,
+                isLeftHand,
+                octave: noteEntry.octave,
+                pitch: noteEntry.pitch
             });
 
             lastFinger = finger;
