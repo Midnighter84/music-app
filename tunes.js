@@ -88,45 +88,45 @@ const TUNES = [
         keySignature: "C",
         defaultTempo: 120,
         notes: [
-            // First phrase - C major harmony
-            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 4 }] },
+            // Measure 1 - C major (I): E E F G
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "F", octave: 4 }] },
-            { pitch: "G", octave: 4, duration: 1 },
-            // G major harmony
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "G", octave: 4 }] },
             { pitch: "F", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
-            { pitch: "D", octave: 4, duration: 1 },
-            // C major
-            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] },
-            { pitch: "C", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
+            { pitch: "G", octave: 4, duration: 1 },
+            // Measure 2 - G major (V): G F E D
+            { duration: 1, notes: [{ pitch: "G", octave: 2 }, { pitch: "B", octave: 2 }, { pitch: "G", octave: 4 }] },
+            { pitch: "F", octave: 4, duration: 1 },
             { pitch: "E", octave: 4, duration: 1 },
-            // G major - ending on D
-            { duration: 1.5, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
+            { pitch: "D", octave: 4, duration: 1 },
+            // Measure 3 - C major (I): C C D E
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 3 }, { pitch: "C", octave: 4 }] },
+            { pitch: "C", octave: 4, duration: 1 },
+            { pitch: "D", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            // Measure 4 - G major (V): E. D D (half cadence)
+            { duration: 1.5, notes: [{ pitch: "G", octave: 2 }, { pitch: "D", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "D", octave: 4, duration: 0.5 },
-            { duration: 2, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
+            { pitch: "D", octave: 4, duration: 2 },
 
-            // Second phrase - C major harmony
-            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 4 }] },
+            // Measure 5 - C major (I): E E F G
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "F", octave: 4 }] },
-            { pitch: "G", octave: 4, duration: 1 },
-            // G major harmony
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "G", octave: 4 }] },
             { pitch: "F", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
-            { pitch: "D", octave: 4, duration: 1 },
-            // C major
-            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] },
-            { pitch: "C", octave: 4, duration: 1 },
-            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
+            { pitch: "G", octave: 4, duration: 1 },
+            // Measure 6 - G major (V): G F E D
+            { duration: 1, notes: [{ pitch: "G", octave: 2 }, { pitch: "B", octave: 2 }, { pitch: "G", octave: 4 }] },
+            { pitch: "F", octave: 4, duration: 1 },
             { pitch: "E", octave: 4, duration: 1 },
-            // C major - ending on C
-            { duration: 1.5, notes: [{ pitch: "C", octave: 3 }, { pitch: "D", octave: 4 }] },
+            { pitch: "D", octave: 4, duration: 1 },
+            // Measure 7 - C major (I): C C D E
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 3 }, { pitch: "C", octave: 4 }] },
+            { pitch: "C", octave: 4, duration: 1 },
+            { pitch: "D", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            // Measure 8 - C major (I): D. C C (authentic cadence)
+            { duration: 1.5, notes: [{ pitch: "C", octave: 3 }, { pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
             { pitch: "C", octave: 4, duration: 0.5 },
-            { duration: 2, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] }
+            { pitch: "C", octave: 4, duration: 2 }
         ]
     },
     {
