@@ -331,6 +331,41 @@ const TUNES = [
             { duration: 4, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] }
         ]
     }
+,
+    {
+        id: "two_hands_exercise",
+        title: "Two Hands Exercise",
+        composer: "Exercise",
+        timeSignature: [4, 4],
+        keySignature: "C",
+        defaultTempo: 70,
+        notes: [
+            // Right hand melody with left hand bass accompaniment
+            // Measure 1: C chord broken - bass C, then treble chord
+            { pitch: "C", octave: 3, duration: 1 },  // Left hand bass
+            { pitch: "E", octave: 4, duration: 1 },  // Right hand
+            { pitch: "G", octave: 4, duration: 1 },
+            { pitch: "E", octave: 4, duration: 1 },
+            // Measure 2: G bass with treble melody
+            { pitch: "G", octave: 2, duration: 1 },  // Left hand bass
+            { pitch: "D", octave: 4, duration: 1 },  // Right hand
+            { pitch: "B", octave: 4, duration: 1 },
+            { pitch: "D", octave: 4, duration: 1 },
+            // Measure 3: A bass with melody
+            { pitch: "A", octave: 2, duration: 1 },  // Left hand bass
+            { pitch: "C", octave: 4, duration: 1 },  // Right hand
+            { pitch: "E", octave: 4, duration: 1 },
+            { pitch: "A", octave: 4, duration: 1 },
+            // Measure 4: F bass to G bass resolution
+            { pitch: "F", octave: 2, duration: 1 },  // Left hand bass
+            { pitch: "A", octave: 4, duration: 1 },  // Right hand
+            { pitch: "G", octave: 2, duration: 1 },  // Left hand bass
+            { pitch: "B", octave: 4, duration: 1 },  // Right hand
+            // Measure 5: Final C chord with bass
+            { pitch: "C", octave: 3, duration: 2 },  // Left hand bass (held)
+            { duration: 2, notes: [{ pitch: "C", octave: 4 }, { pitch: "E", octave: 4 }, { pitch: "G", octave: 4 }] }  // Right hand chord
+        ]
+    }
 ];
 
 // Export for use in other modules

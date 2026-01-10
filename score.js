@@ -1,6 +1,7 @@
 /**
  * Score renderer module
  * Draws musical notation on a canvas element with multiple rows
+ * Supports both treble and bass clef (grand staff)
  */
 
 class ScoreRenderer {
@@ -11,7 +12,9 @@ class ScoreRenderer {
         // Layout settings
         this.staffLineSpacing = 12;
         this.staffHeight = 4 * this.staffLineSpacing; // 5 lines = 4 gaps
-        this.rowSpacing = 100; // Space between staff systems
+        this.grandStaffGap = 40; // Gap between treble and bass staves
+        this.rowSpacing = 100; // Space between staff systems (single staff)
+        this.grandStaffRowSpacing = 160; // Space between grand staff systems
         this.firstRowTop = 60;
         this.noteSpacing = 45;
         this.leftMargin = 80;
@@ -34,16 +37,31 @@ class ScoreRenderer {
         // Fingering data
         this.fingeringData = [];
 
-        // Note position mapping (relative to middle line, in staff line units)
+        // Whether current tune uses bass clef
+        this.usesBassClef = false;
+
+        // Treble clef note positions (relative to middle line, in staff line units)
         // Treble clef: Lines are E4, G4, B4, D5, F5 (bottom to top)
         // Spaces are F4, A4, C5, E5 (bottom to top)
         // Middle C (C4) is on first ledger line below staff
-        this.notePositions = {
-            'C3': 6.5, 'D3': 6, 'E3': 5.5, 'F3': 5, 'G3': 4.5, 'A3': 4, 'B3': 3.5,
+        this.trebleNotePositions = {
             'C4': 3, 'D4': 2.5, 'E4': 2, 'F4': 1.5, 'G4': 1, 'A4': 0.5, 'B4': 0,
             'C5': -0.5, 'D5': -1, 'E5': -1.5, 'F5': -2, 'G5': -2.5, 'A5': -3, 'B5': -3.5,
-            'C6': -4
+            'C6': -4, 'D6': -4.5, 'E6': -5
         };
+
+        // Bass clef note positions (relative to middle line, in staff line units)
+        // Bass clef: Lines are G2, B2, D3, F3, A3 (bottom to top)
+        // Spaces are A2, C3, E3, G3 (bottom to top)
+        // Middle C (C4) is on first ledger line above bass staff
+        this.bassNotePositions = {
+            'C2': 3.5, 'D2': 3, 'E2': 2.5, 'F2': 2, 'G2': 1.5, 'A2': 1, 'B2': 0.5,
+            'C3': 0, 'D3': -0.5, 'E3': -1, 'F3': -1.5, 'G3': -2, 'A3': -2.5, 'B3': -3,
+            'C4': -3.5, 'D4': -4, 'E4': -4.5
+        };
+
+        // Threshold octave for bass clef (notes at or below this octave use bass clef)
+        this.bassClefThreshold = 3;
 
         // Current playback state
         this.currentNoteIndex = -1;
@@ -77,57 +95,148 @@ class ScoreRenderer {
     }
 
     /**
-     * Get the top Y position for a specific row
+     * Check if a note should be on the bass clef
+     */
+    isBassClefNote(pitch, octave) {
+        if (pitch === 'R') return false;
+        return octave <= this.bassClefThreshold;
+    }
+
+    /**
+     * Check if a tune contains any bass clef notes
+     */
+    tuneHasBassClefNotes(notes) {
+        for (const noteEntry of notes) {
+            if (this.isChord(noteEntry)) {
+                for (const note of noteEntry.notes) {
+                    if (this.isBassClefNote(note.pitch, note.octave)) {
+                        return true;
+                    }
+                }
+            } else if (noteEntry.pitch !== 'R' && this.isBassClefNote(noteEntry.pitch, noteEntry.octave)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the top Y position for a specific row (treble staff)
      */
     getRowTop(rowIndex) {
-        return this.firstRowTop + rowIndex * this.rowSpacing;
+        const spacing = this.usesBassClef ? this.grandStaffRowSpacing : this.rowSpacing;
+        return this.firstRowTop + rowIndex * spacing;
+    }
+
+    /**
+     * Get the top Y position for bass staff in a specific row
+     */
+    getBassStaffTop(rowIndex) {
+        return this.getRowTop(rowIndex) + this.staffHeight + this.grandStaffGap;
     }
 
     /**
      * Draw staff lines for a specific row
      */
     drawStaffRow(rowIndex) {
-        const staffTop = this.getRowTop(rowIndex);
+        const trebleTop = this.getRowTop(rowIndex);
 
         this.ctx.strokeStyle = this.colors.staff;
         this.ctx.lineWidth = 1;
 
-        // Draw 5 staff lines
+        // Draw treble staff (5 lines)
         for (let i = 0; i < 5; i++) {
-            const y = staffTop + i * this.staffLineSpacing;
+            const y = trebleTop + i * this.staffLineSpacing;
             this.ctx.beginPath();
             this.ctx.moveTo(this.leftMargin - 30, y);
             this.ctx.lineTo(this.canvas.width - this.rightMargin, y);
             this.ctx.stroke();
         }
+
+        // Draw bass staff if needed
+        if (this.usesBassClef) {
+            const bassTop = this.getBassStaffTop(rowIndex);
+
+            for (let i = 0; i < 5; i++) {
+                const y = bassTop + i * this.staffLineSpacing;
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.leftMargin - 30, y);
+                this.ctx.lineTo(this.canvas.width - this.rightMargin, y);
+                this.ctx.stroke();
+            }
+
+            // Draw brace connecting the staves
+            this.drawGrandStaffBrace(rowIndex);
+        }
     }
 
     /**
-     * Draw the treble clef for a specific row
+     * Draw a brace connecting treble and bass staves
+     */
+    drawGrandStaffBrace(rowIndex) {
+        const trebleTop = this.getRowTop(rowIndex);
+        const bassBottom = this.getBassStaffTop(rowIndex) + this.staffHeight;
+
+        this.ctx.strokeStyle = this.colors.staff;
+        this.ctx.lineWidth = 2;
+
+        // Simple bracket line
+        const x = this.leftMargin - 35;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, trebleTop);
+        this.ctx.lineTo(x, bassBottom);
+        this.ctx.stroke();
+
+        // Top and bottom caps
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, trebleTop);
+        this.ctx.lineTo(x + 5, trebleTop);
+        this.ctx.stroke();
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, bassBottom);
+        this.ctx.lineTo(x + 5, bassBottom);
+        this.ctx.stroke();
+    }
+
+    /**
+     * Draw clef(s) for a specific row
      */
     drawClef(rowIndex) {
-        const staffTop = this.getRowTop(rowIndex);
+        const trebleTop = this.getRowTop(rowIndex);
 
         this.ctx.fillStyle = this.colors.clef;
         this.ctx.font = 'bold 70px serif';
         this.ctx.textBaseline = 'middle';
 
         // Unicode treble clef character
-        const clefY = staffTop + 2 * this.staffLineSpacing;
-        this.ctx.fillText('𝄞', this.leftMargin - 25, clefY + 5);
+        const trebleClefY = trebleTop + 2 * this.staffLineSpacing;
+        this.ctx.fillText('𝄞', this.leftMargin - 25, trebleClefY + 5);
+
+        // Draw bass clef if needed
+        if (this.usesBassClef) {
+            const bassTop = this.getBassStaffTop(rowIndex);
+            this.ctx.font = 'bold 50px serif';
+            // Unicode bass clef character
+            const bassClefY = bassTop + 1.5 * this.staffLineSpacing;
+            this.ctx.fillText('𝄢', this.leftMargin - 25, bassClefY);
+        }
     }
 
     /**
      * Get Y position for a note on the staff (relative to a row)
      */
     getNoteY(pitch, octave, rowIndex) {
-        const staffTop = this.getRowTop(rowIndex);
-
         // Remove sharps/flats for position calculation
         const basePitch = pitch.replace('#', '').replace('b', '');
         const key = `${basePitch}${octave}`;
 
-        const position = this.notePositions[key];
+        // Determine which staff and position map to use
+        const useBass = this.usesBassClef && this.isBassClefNote(pitch, octave);
+        const staffTop = useBass ? this.getBassStaffTop(rowIndex) : this.getRowTop(rowIndex);
+        const positionMap = useBass ? this.bassNotePositions : this.trebleNotePositions;
+
+        const position = positionMap[key];
         if (position === undefined) {
             // Default to middle line if note not found
             return staffTop + 2 * this.staffLineSpacing;
@@ -252,8 +361,9 @@ class ScoreRenderer {
                 const y = this.getNoteY(chordNote.pitch, chordNote.octave, row);
                 yPositions.push(y);
 
-                // Draw ledger lines if needed
-                this.drawLedgerLines(x, y, row);
+                // Draw ledger lines if needed (check if this note is on bass clef)
+                const isBassNote = this.isBassClefNote(chordNote.pitch, chordNote.octave);
+                this.drawLedgerLines(x, y, row, isBassNote);
 
                 // Draw note head
                 this.drawNoteHead(x, y, duration, fillColor, row);
@@ -291,8 +401,9 @@ class ScoreRenderer {
             // Draw single note
             const y = this.getNoteY(note.pitch, note.octave, row);
 
-            // Draw ledger lines if needed
-            this.drawLedgerLines(x, y, row);
+            // Draw ledger lines if needed (check if this note is on bass clef)
+            const isBassNote = this.isBassClefNote(note.pitch, note.octave);
+            this.drawLedgerLines(x, y, row, isBassNote);
 
             // Draw note head
             this.drawNoteHead(x, y, duration, fillColor, row);
@@ -329,9 +440,16 @@ class ScoreRenderer {
     /**
      * Draw ledger lines for notes above or below the staff
      */
-    drawLedgerLines(x, y, rowIndex) {
-        const staffTop = this.getRowTop(rowIndex);
-        const staffBottom = staffTop + 4 * this.staffLineSpacing;
+    drawLedgerLines(x, y, rowIndex, isBassNote = false) {
+        // Determine which staff this note belongs to
+        let staffTop, staffBottom;
+        if (this.usesBassClef && isBassNote) {
+            staffTop = this.getBassStaffTop(rowIndex);
+            staffBottom = staffTop + 4 * this.staffLineSpacing;
+        } else {
+            staffTop = this.getRowTop(rowIndex);
+            staffBottom = staffTop + 4 * this.staffLineSpacing;
+        }
 
         this.ctx.strokeStyle = this.colors.staff;
         this.ctx.lineWidth = 1;
@@ -413,11 +531,19 @@ class ScoreRenderer {
 
         if (x < this.leftMargin || x > this.canvas.width - this.rightMargin) return;
 
+        // Calculate bottom of playhead (extends to bass staff if grand staff)
+        let playheadBottom;
+        if (this.usesBassClef) {
+            playheadBottom = this.getBassStaffTop(rowIndex) + this.staffHeight + 15;
+        } else {
+            playheadBottom = staffTop + this.staffHeight + 15;
+        }
+
         this.ctx.strokeStyle = this.colors.playhead;
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
         this.ctx.moveTo(x, staffTop - 15);
-        this.ctx.lineTo(x, staffTop + 4 * this.staffLineSpacing + 15);
+        this.ctx.lineTo(x, playheadBottom);
         this.ctx.stroke();
 
         // Draw triangle at top
@@ -478,12 +604,16 @@ class ScoreRenderer {
         this.currentTune = tune;
 
         if (!tune || !tune.notes || tune.notes.length === 0) {
+            this.usesBassClef = false;
             this.canvas.height = 200;
             this.clear();
             this.drawStaffRow(0);
             this.drawClef(0);
             return;
         }
+
+        // Detect if tune has bass clef notes (before layout calculation)
+        this.usesBassClef = this.tuneHasBassClefNotes(tune.notes);
 
         // Calculate layout for all notes
         this.noteLayout = this.calculateLayout(tune.notes);
@@ -498,8 +628,9 @@ class ScoreRenderer {
             ? this.noteLayout[this.noteLayout.length - 1].row + 1
             : 1;
 
-        // Set canvas height based on number of rows
-        const requiredHeight = this.firstRowTop + numRows * this.rowSpacing + 20;
+        // Set canvas height based on number of rows and whether grand staff is used
+        const rowSpacing = this.usesBassClef ? this.grandStaffRowSpacing : this.rowSpacing;
+        const requiredHeight = this.firstRowTop + numRows * rowSpacing + 20;
         this.canvas.height = Math.max(200, requiredHeight);
 
         this.clear();
