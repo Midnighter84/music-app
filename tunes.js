@@ -88,38 +88,45 @@ const TUNES = [
         keySignature: "C",
         defaultTempo: 120,
         notes: [
-            // First phrase
+            // First phrase - C major harmony
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "F", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "F", octave: 4 }] },
             { pitch: "G", octave: 4, duration: 1 },
-            { pitch: "G", octave: 4, duration: 1 },
+            // G major harmony
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "G", octave: 4 }] },
             { pitch: "F", octave: 4, duration: 1 },
-            { pitch: "E", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "D", octave: 4, duration: 1 },
+            // C major
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] },
             { pitch: "C", octave: 4, duration: 1 },
-            { pitch: "C", octave: 4, duration: 1 },
-            { pitch: "D", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "E", octave: 4, duration: 1.5 },
+            // G major - ending on D
+            { duration: 1.5, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "D", octave: 4, duration: 0.5 },
-            { pitch: "D", octave: 4, duration: 2 },
-            // Second phrase
+            { duration: 2, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
+
+            // Second phrase - C major harmony
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "F", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "F", octave: 4 }] },
             { pitch: "G", octave: 4, duration: 1 },
-            { pitch: "G", octave: 4, duration: 1 },
+            // G major harmony
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "G", octave: 4 }] },
             { pitch: "F", octave: 4, duration: 1 },
-            { pitch: "E", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "E", octave: 4 }] },
             { pitch: "D", octave: 4, duration: 1 },
+            // C major
+            { duration: 1, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] },
             { pitch: "C", octave: 4, duration: 1 },
-            { pitch: "C", octave: 4, duration: 1 },
-            { pitch: "D", octave: 4, duration: 1 },
+            { duration: 1, notes: [{ pitch: "G", octave: 3 }, { pitch: "D", octave: 4 }] },
             { pitch: "E", octave: 4, duration: 1 },
-            { pitch: "D", octave: 4, duration: 1.5 },
+            // C major - ending on C
+            { duration: 1.5, notes: [{ pitch: "C", octave: 3 }, { pitch: "D", octave: 4 }] },
             { pitch: "C", octave: 4, duration: 0.5 },
-            { pitch: "C", octave: 4, duration: 2 }
+            { duration: 2, notes: [{ pitch: "C", octave: 3 }, { pitch: "C", octave: 4 }] }
         ]
     },
     {
