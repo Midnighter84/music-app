@@ -294,23 +294,31 @@ class FingeringEngine {
      * Returns array of finger numbers for each note in the chord
      */
     generateChordFingering(chordNotes, positionKey) {
-        // Sort notes by pitch (lowest to highest) and assign fingers accordingly
+        // Separate notes into left hand and right hand
+        const lhNotes = chordNotes.filter(n => this.isLeftHand(n.octave));
+        const rhNotes = chordNotes.filter(n => !this.isLeftHand(n.octave));
+
+        // If chord spans both hands, finger each hand independently using position-based fingering
+        if (lhNotes.length > 0 && rhNotes.length > 0) {
+            return chordNotes.map(note => {
+                const isLH = this.isLeftHand(note.octave);
+                return this.getFingerForNote(note.pitch, positionKey, note.octave);
+            });
+        }
+
+        // Single-hand chord - use spread fingering
         const sortedNotes = [...chordNotes].sort((a, b) => {
             const aValue = this.noteOrder.indexOf(this.getBaseNote(a.pitch)) + a.octave * 7;
             const bValue = this.noteOrder.indexOf(this.getBaseNote(b.pitch)) + b.octave * 7;
             return aValue - bValue;
         });
 
-        // For chords, assign fingers from lowest note (typically 1) to highest (typically 5)
-        // This is a simplified approach - real chord fingering can be more complex
         const fingers = [];
         const numNotes = sortedNotes.length;
 
         sortedNotes.forEach((note, i) => {
-            // Try to use position-based fingering first
-            let finger = this.getFingerForNote(note.pitch, positionKey);
-
-            // If that doesn't work well for a chord, use spread fingering
+            let finger;
+            // Use spread fingering for single-hand chords
             if (numNotes === 2) {
                 finger = i === 0 ? 1 : 5;
             } else if (numNotes === 3) {
@@ -319,8 +327,10 @@ class FingeringEngine {
                 finger = [1, 2, 4, 5][i];
             } else if (numNotes >= 5) {
                 finger = i + 1;
+            } else {
+                // Single note, use position-based
+                finger = this.getFingerForNote(note.pitch, positionKey, note.octave);
             }
-
             fingers.push(finger);
         });
 
