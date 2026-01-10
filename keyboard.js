@@ -225,12 +225,15 @@ class LiveKeyboardRenderer {
 
         if (!positionKeys.includes(keyName)) return { inPosition: false };
 
-        // Calculate which octave this key should be in
-        const keyIndexInPosition = positionKeys.indexOf(keyName);
-        const baseNoteIndex = positionKeys.indexOf(baseNote);
+        // Use musical note order (C=0, D=1, ..., B=6) to determine octave
+        const noteOrder = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+        const keyMusicIndex = noteOrder.indexOf(keyName);
+        const baseMusicIndex = noteOrder.indexOf(baseNote);
 
+        // If the key comes before the base note in musical order (e.g., C in F position),
+        // it belongs to the next octave
         let expectedOctave;
-        if (keyIndexInPosition >= baseNoteIndex) {
+        if (keyMusicIndex >= baseMusicIndex) {
             expectedOctave = positionOctave;
         } else {
             expectedOctave = positionOctave + 1;
