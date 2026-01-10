@@ -101,47 +101,114 @@ class LiveKeyboardRenderer {
             return;
         }
 
-        // Determine which hand based on the note
-        const isLeftHand = fingeringInfo.isLeftHand;
-        const position = fingeringInfo.position;
-
-        // Get pressed keys from the note
+        // Get pressed keys from the note and separate by hand
         this.pressedKeys = [];
+        let leftHandNotes = [];
+        let rightHandNotes = [];
 
         if (note.notes && Array.isArray(note.notes)) {
-            // Chord
+            // Chord - separate into left and right hand based on octave
             note.notes.forEach(n => {
                 if (n.pitch !== 'R') {
-                    this.pressedKeys.push({
+                    const noteInfo = {
                         pitch: n.pitch.replace('#', '').replace('b', ''),
                         octave: n.octave,
                         isLeftHand: this.isLeftHandNote(n.octave),
                         isSharp: n.pitch.includes('#'),
                         isFlat: n.pitch.includes('b')
-                    });
+                    };
+                    this.pressedKeys.push(noteInfo);
+
+                    if (noteInfo.isLeftHand) {
+                        leftHandNotes.push(noteInfo);
+                    } else {
+                        rightHandNotes.push(noteInfo);
+                    }
                 }
             });
         } else if (note.pitch !== 'R') {
             // Single note
-            this.pressedKeys.push({
+            const isLeftHand = fingeringInfo.isLeftHand;
+            const noteInfo = {
                 pitch: note.pitch.replace('#', '').replace('b', ''),
                 octave: note.octave,
                 isLeftHand: isLeftHand,
                 isSharp: note.pitch.includes('#'),
                 isFlat: note.pitch.includes('b')
-            });
+            };
+            this.pressedKeys.push(noteInfo);
+
+            if (isLeftHand) {
+                leftHandNotes.push(noteInfo);
+            } else {
+                rightHandNotes.push(noteInfo);
+            }
         }
 
-        // Update positions - keep both hands' positions visible
-        if (isLeftHand) {
-            this.leftHandPosition = position;
-            this.leftHandOctave = fingeringInfo.octave || 3;
-        } else {
-            this.rightHandPosition = position;
-            this.rightHandOctave = fingeringInfo.octave || 4;
+        // Update left hand position from actual LH notes
+        if (leftHandNotes.length > 0) {
+            // Find the lowest note to determine position
+            const lowestNote = leftHandNotes.reduce((lowest, n) =>
+                (n.octave < lowest.octave || (n.octave === lowest.octave && this.getNoteIndex(n.pitch) < this.getNoteIndex(lowest.pitch)))
+                    ? n : lowest
+            );
+            const lhPosition = this.detectPositionFromNote(lowestNote.pitch, true);
+            if (lhPosition) {
+                this.leftHandPosition = lhPosition;
+                this.leftHandOctave = lowestNote.octave;
+            }
+        }
+
+        // Update right hand position from actual RH notes
+        if (rightHandNotes.length > 0) {
+            // Find the lowest note to determine position
+            const lowestNote = rightHandNotes.reduce((lowest, n) =>
+                (n.octave < lowest.octave || (n.octave === lowest.octave && this.getNoteIndex(n.pitch) < this.getNoteIndex(lowest.pitch)))
+                    ? n : lowest
+            );
+            const rhPosition = this.detectPositionFromNote(lowestNote.pitch, false);
+            if (rhPosition) {
+                this.rightHandPosition = rhPosition;
+                this.rightHandOctave = lowestNote.octave;
+            }
         }
 
         this.render();
+    }
+
+    /**
+     * Get note index in scale (C=0, D=1, ..., B=6)
+     */
+    getNoteIndex(pitch) {
+        const noteOrder = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+        return noteOrder.indexOf(pitch);
+    }
+
+    /**
+     * Detect which position a note belongs to
+     */
+    detectPositionFromNote(pitch, isLeftHand) {
+        const positions = isLeftHand ?
+            (typeof fingeringEngine !== 'undefined' ? fingeringEngine.leftHandPositions : null) :
+            (typeof fingeringEngine !== 'undefined' ? fingeringEngine.rightHandPositions : null);
+
+        if (!positions) return null;
+
+        // Check each position to see if this note is the base note
+        for (const [posKey, posData] of Object.entries(positions)) {
+            if (posData.baseNote === pitch) {
+                return posKey;
+            }
+        }
+
+        // If not a base note, find which position contains this note
+        for (const [posKey, posData] of Object.entries(positions)) {
+            if (posData.keys.includes(pitch)) {
+                return posKey;
+            }
+        }
+
+        return 'C'; // Default fallback
     }
 
     /**
