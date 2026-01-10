@@ -21,6 +21,32 @@
                 </select>
             </div>
 
+            <!-- Display Options -->
+            <div class="display-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="position-mode-toggle">
+                    <span class="checkbox-text">Show hand positions</span>
+                </label>
+                <div id="position-legend" class="position-legend hidden">
+                    <span class="legend-item" data-position="C">
+                        <span class="legend-color" style="background-color: #3498db;"></span>
+                        C Position
+                    </span>
+                    <span class="legend-item" data-position="G">
+                        <span class="legend-color" style="background-color: #e74c3c;"></span>
+                        G Position
+                    </span>
+                    <span class="legend-item" data-position="F">
+                        <span class="legend-color" style="background-color: #2ecc71;"></span>
+                        F Position
+                    </span>
+                    <span class="legend-item" data-position="D">
+                        <span class="legend-color" style="background-color: #9b59b6;"></span>
+                        D Position
+                    </span>
+                </div>
+            </div>
+
             <!-- Score Display -->
             <div class="score-container">
                 <canvas id="score-canvas"></canvas>

@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeDisplay = document.getElementById('time-display');
     const tuneTitle = document.getElementById('tune-title');
     const tuneComposer = document.getElementById('tune-composer');
+    const positionModeToggle = document.getElementById('position-mode-toggle');
+    const positionLegend = document.getElementById('position-legend');
 
     /**
      * Format time in MM:SS format
@@ -149,6 +151,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * Handle position mode toggle
+     */
+    function onPositionModeToggle() {
+        const enabled = positionModeToggle.checked;
+
+        // Show/hide the legend
+        if (enabled) {
+            positionLegend.classList.remove('hidden');
+        } else {
+            positionLegend.classList.add('hidden');
+        }
+
+        // Update score renderer
+        if (scoreRenderer) {
+            scoreRenderer.setPositionMode(enabled);
+        }
+    }
+
+    /**
      * Handle playback progress update
      */
     function onProgressUpdate(progress, elapsed, total) {
@@ -184,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseBtn.addEventListener('click', onPause);
         stopBtn.addEventListener('click', onStop);
         tempoSlider.addEventListener('input', onTempoChange);
+        positionModeToggle.addEventListener('change', onPositionModeToggle);
 
         // Set up player callbacks
         tunePlayer.onProgressUpdate = onProgressUpdate;

@@ -34,6 +34,17 @@ class ScoreRenderer {
             positionChange: '#667eea'    // Purple for position change indicator
         };
 
+        // Hand position colors for position mode
+        this.positionColors = {
+            'C': '#3498db',  // Blue for C Position
+            'G': '#e74c3c',  // Red for G Position
+            'F': '#2ecc71',  // Green for F Position
+            'D': '#9b59b6'   // Purple for D Position
+        };
+
+        // Show hand position mode (color notes by position)
+        this.showPositionMode = false;
+
         // Fingering data
         this.fingeringData = [];
 
@@ -92,6 +103,44 @@ class ScoreRenderer {
     clear() {
         this.ctx.fillStyle = this.colors.background;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * Set hand position display mode
+     */
+    setPositionMode(enabled) {
+        this.showPositionMode = enabled;
+        if (this.currentTune) {
+            this.render(this.currentTune, this.currentNoteIndex);
+        }
+    }
+
+    /**
+     * Get position colors for legend display
+     */
+    getPositionColors() {
+        return this.positionColors;
+    }
+
+    /**
+     * Lighten a hex color by a given amount (0-1)
+     */
+    lightenColor(hex, amount) {
+        // Remove # if present
+        hex = hex.replace('#', '');
+
+        // Parse RGB values
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        // Lighten by mixing with white
+        const newR = Math.round(r + (255 - r) * amount);
+        const newG = Math.round(g + (255 - g) * amount);
+        const newB = Math.round(b + (255 - b) * amount);
+
+        // Convert back to hex
+        return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
     }
 
     /**
@@ -340,12 +389,33 @@ class ScoreRenderer {
             return;
         }
 
-        // Determine note color based on playback state
+        // Determine note color based on playback state or position mode
         let fillColor = this.colors.notes;
+
+        // Check if position mode is enabled and we have fingering data
+        if (this.showPositionMode && this.fingeringData && this.fingeringData[index]) {
+            const position = this.fingeringData[index].position;
+            if (position && this.positionColors[position]) {
+                fillColor = this.positionColors[position];
+            }
+        }
+
+        // Override with playback state colors
         if (index === currentNoteIndex) {
             fillColor = this.colors.currentNote;
         } else if (index < currentNoteIndex) {
-            fillColor = this.colors.playedNote;
+            // In position mode, dim the played notes but keep position tint
+            if (this.showPositionMode && this.fingeringData && this.fingeringData[index]) {
+                const position = this.fingeringData[index].position;
+                if (position && this.positionColors[position]) {
+                    // Lighten the position color for played notes
+                    fillColor = this.lightenColor(this.positionColors[position], 0.4);
+                } else {
+                    fillColor = this.colors.playedNote;
+                }
+            } else {
+                fillColor = this.colors.playedNote;
+            }
         }
 
         const staffTop = this.getRowTop(row);
