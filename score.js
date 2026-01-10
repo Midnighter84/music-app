@@ -812,11 +812,21 @@ class ScoreRenderer {
                 const maxY = Math.max(...yPositions);
                 const avgY = (minY + maxY) / 2;
 
-                // Stem direction based on average position
+                // Stem direction based on average position relative to treble staff middle
                 const stemDirection = avgY > staffTop + 2 * this.staffLineSpacing ? -1 : 1;
                 const stemX = x + (stemDirection === -1 ? 7 : -7);
-                const stemStartY = stemDirection === -1 ? maxY : minY;
-                const stemEndY = stemStartY + stemDirection * 35;
+
+                // Stem must span all notes plus extend beyond
+                let stemStartY, stemEndY;
+                if (stemDirection === -1) {
+                    // Stem goes up: start from lowest note, extend above highest
+                    stemStartY = maxY;
+                    stemEndY = Math.min(minY - 25, maxY - 35);
+                } else {
+                    // Stem goes down: start from highest note, extend below lowest
+                    stemStartY = minY;
+                    stemEndY = Math.max(maxY + 25, minY + 35);
+                }
 
                 this.ctx.strokeStyle = fillColor;
                 this.ctx.lineWidth = 2;
@@ -918,7 +928,13 @@ class ScoreRenderer {
     drawFlag(x, y, direction) {
         this.ctx.beginPath();
         this.ctx.moveTo(x, y);
-        this.ctx.quadraticCurveTo(x + 15, y + direction * 10, x + 10, y + direction * 25);
+        if (direction === -1) {
+            // Stem goes up - flag curves down and to the right
+            this.ctx.quadraticCurveTo(x + 12, y + 8, x + 8, y + 20);
+        } else {
+            // Stem goes down - flag curves up and to the right
+            this.ctx.quadraticCurveTo(x + 12, y - 8, x + 8, y - 20);
+        }
         this.ctx.stroke();
     }
 
