@@ -101,6 +101,9 @@ class LiveKeyboardRenderer {
             return;
         }
 
+        // Get the position from fingering engine (it analyzes the whole tune)
+        const position = fingeringInfo.position;
+
         // Get pressed keys from the note and separate by hand
         this.pressedKeys = [];
         let leftHandNotes = [];
@@ -145,13 +148,13 @@ class LiveKeyboardRenderer {
             }
         }
 
-        // Update left hand position from actual LH notes
+        // Update left hand position - use actual octave from notes
         if (leftHandNotes.length > 0) {
-            // Find the lowest note to determine position
             const lowestNote = leftHandNotes.reduce((lowest, n) =>
                 (n.octave < lowest.octave || (n.octave === lowest.octave && this.getNoteIndex(n.pitch) < this.getNoteIndex(lowest.pitch)))
                     ? n : lowest
             );
+            // Detect position from the bass note (for LH chords like G2+B2 = G position)
             const lhPosition = this.detectPositionFromNote(lowestNote.pitch, true);
             if (lhPosition) {
                 this.leftHandPosition = lhPosition;
@@ -159,18 +162,21 @@ class LiveKeyboardRenderer {
             }
         }
 
-        // Update right hand position from actual RH notes
+        // Update right hand position - use fingering engine's position, just update octave
         if (rightHandNotes.length > 0) {
-            // Find the lowest note to determine position
             const lowestNote = rightHandNotes.reduce((lowest, n) =>
                 (n.octave < lowest.octave || (n.octave === lowest.octave && this.getNoteIndex(n.pitch) < this.getNoteIndex(lowest.pitch)))
                     ? n : lowest
             );
-            const rhPosition = this.detectPositionFromNote(lowestNote.pitch, false);
-            if (rhPosition) {
-                this.rightHandPosition = rhPosition;
-                this.rightHandOctave = lowestNote.octave;
+            // Use the position from fingering engine (it analyzes the whole tune correctly)
+            if (position && !fingeringInfo.isLeftHand) {
+                this.rightHandPosition = position;
             }
+            this.rightHandOctave = lowestNote.octave;
+        } else if (!fingeringInfo.isLeftHand && position) {
+            // Single RH note - use fingering engine's position and octave
+            this.rightHandPosition = position;
+            this.rightHandOctave = fingeringInfo.octave || 4;
         }
 
         this.render();
