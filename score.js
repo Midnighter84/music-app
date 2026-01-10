@@ -114,8 +114,12 @@ class ScoreRenderer {
         if (!this.showPositionMode || !this.noteLayout.length) return;
 
         const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Scale mouse coordinates to match canvas internal resolution
+        // (CSS width: 100% can cause display size to differ from canvas.width)
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
 
         // Find if we're hovering over a note
         const hoveredIndex = this.findNoteAtPosition(x, y);
